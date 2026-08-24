@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum test_result {
+  pass
+  fail
+  not_executed
+}
+
+enum bug_severity {
+  minor
+  major
+  critical
+}
+
+enum bug_status {
+  open
+  fixed
+  verified
+  closed
+}
+
+enum test_run_mode {
+  full_check
+  cross_check
+  recheck
+}
+
+model test_cases {
+  test_case_number String             @id
+  test_page_area    String
+  test_scenario     String
+  test_step_number  Int
+  step_details      String
+  expected_output   String
+  test_data         String?
+  result            test_result
+  bug_id            String?
+  screenshot        String?
+  qa_comments       String?
+  bug_severity      bug_severity?
+  bug_status        bug_status?
+  run_results       test_run_results[]
+}
+
+model test_runs {
+  id              String             @id @default(cuid())
+  mode            test_run_mode
+  url             String
+  timestamp       DateTime           @default(now())
+  status          String
+  results         test_run_results[]
+  checklist_items checklist_items[]
+}
+
+model test_run_results {
+  id               String        @id @default(cuid())
+  test_run_id      String
+  test_case_number String
+  result           test_result
+  screenshot       String?
+  qa_comments      String?
+  bug_severity     bug_severity?
+  bug_status       bug_status?
+  test_run         test_runs     @relation(fields: [test_run_id], references: [id])
+  test_case        test_cases    @relation(fields: [test_case_number], references: [test_case_number])
+
+  @@unique([test_run_id, test_case_number])
+}
+
+model checklist_items {
+  id            String    @id @default(cuid())
+  test_run_id   String
+  description   String
+  approved      Boolean   @default(false)
+  rejected      Boolean   @default(false)
+  added_by_user Boolean   @default(false)
+  test_run      test_runs @relation(fields: [test_run_id], references: [id])
+}
+
+model edit_requests {
+  id            String   @id @default(cuid())
+  instruction   String
+  proposed_diff Json
+  created_at    DateTime @default(now())
+}

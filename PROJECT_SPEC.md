@@ -136,9 +136,31 @@ Two paths, both must be supported:
 
 ---
 
-## 11. Open Decisions (must resolve before/while building)
+## 11. Design Decisions (Resolved)
 
-1. Add `bug_status` as separate field from `bug_severity`? (Recommended: yes)
-2. Multi-turn conversational memory for checklist/test case chat, or single-turn only for v1?
-3. Automatic AI pass/fail determination (vision-based comparison) vs. always requiring user confirmation of result?
-4. Deployment/hosting target — undecided, revisit after core flow is working locally.
+1. **bug_status field**: Added as a separate field from bug_severity.
+   - `bug_status` — enum: `open` | `fixed` | `verified` | `closed`, nullable, populated when result = fail.
+   - `bug_severity` — enum: `minor` | `major` | `critical`, nullable, populated when result = fail.
+   - Rationale: severity describes impact, status describes lifecycle. Recheck mode
+     needs status transitions (e.g. open → fixed → verified) to report bug resolution
+     over time, not just pass/fail per run.
+
+2. **Chat/edit conversational memory**: Single-turn for v1.
+   - Each checklist note or test case edit instruction is sent with the current
+     state (checklist or test case) and processed independently.
+   - No persistent multi-turn conversation history is stored per editing session in v1.
+   - Multi-turn memory may be added later without requiring a schema change —
+     this is a context-passing decision, not a data model decision.
+
+3. **Pass/fail determination**: AI-assisted with mandatory user confirmation.
+   - After execution, the system uses vision-based comparison (screenshot vs.
+     expected_output) to propose a pass/fail result per test case.
+   - The proposed result is never final on its own — the user reviews and
+     confirms or overrides each result before it is recorded as final in
+     test_run_results.
+   - Rationale: keeps a human as final authority, consistent with the
+     human-in-the-loop principle in Section 2.
+
+4. **Deployment/hosting target**: Still open — not required before building
+   and testing the application locally. Revisit once the core flow (Full Check
+   mode, end to end) works on a local machine.
