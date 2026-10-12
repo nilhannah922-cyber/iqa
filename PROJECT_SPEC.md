@@ -80,7 +80,7 @@ All test cases — regardless of which mode created them — use this exact colu
 | 11 | qa_comments | string, nullable |
 | 12 | bug_severity | enum: `minor` \| `major` \| `critical`, nullable — populated only when result = fail |
 
-**Open field recommended but not yet finalized**: `bug_status` (enum: open/fixed/verified/closed) — separate from bug_severity. Needed if Recheck should report on bug lifecycle, not just pass/fail state. Flag for decision before building Recheck reporting.
+**Decided field**: `bug_status` (enum: `open` \| `fixed` \| `verified` \| `closed`, nullable) — a separate field from bug_severity. Lets Recheck report on bug lifecycle, not just pass/fail state (see Section 11).
 
 ---
 
@@ -136,9 +136,9 @@ Two paths, both must be supported:
 
 ---
 
-## 11. Open Decisions (must resolve before/while building)
+## 11. Design Decisions
 
-1. Add `bug_status` as separate field from `bug_severity`? (Recommended: yes)
-2. Multi-turn conversational memory for checklist/test case chat, or single-turn only for v1?
-3. Automatic AI pass/fail determination (vision-based comparison) vs. always requiring user confirmation of result?
-4. Deployment/hosting target — undecided, revisit after core flow is working locally.
+1. **bug_status**: Resolved. `bug_status` (enum: open/fixed/verified/closed) is a separate field from `bug_severity`.
+2. **Chat memory**: Resolved. Checklist and test case chat is single-turn for v1 (note + current state → new state); no multi-turn conversational memory.
+3. **Pass/fail determination**: Resolved. Pass/fail is AI-proposed from a screenshot, and the user must confirm it before it is final.
+4. **Deployment/hosting target**: Still open — revisit after core flow is working locally.
