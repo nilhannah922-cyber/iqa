@@ -80,7 +80,7 @@ All test cases — regardless of which mode created them — use this exact colu
 | 11 | qa_comments | string, nullable |
 | 12 | bug_severity | enum: `minor` \| `major` \| `critical`, nullable — populated only when result = fail |
 
-**Open field recommended but not yet finalized**: `bug_status` (enum: open/fixed/verified/closed) — separate from bug_severity. Needed if Recheck should report on bug lifecycle, not just pass/fail state. Flag for decision before building Recheck reporting.
+**Decided field**: `bug_status` (enum: `open` \| `fixed` \| `verified` \| `closed`, nullable) — a separate field from bug_severity. Lets Recheck report on bug lifecycle, not just pass/fail state (see Section 11).
 
 ---
 
@@ -136,31 +136,9 @@ Two paths, both must be supported:
 
 ---
 
-## 11. Design Decisions (Resolved)
+## 11. Design Decisions
 
-1. **bug_status field**: Added as a separate field from bug_severity.
-   - `bug_status` — enum: `open` | `fixed` | `verified` | `closed`, nullable, populated when result = fail.
-   - `bug_severity` — enum: `minor` | `major` | `critical`, nullable, populated when result = fail.
-   - Rationale: severity describes impact, status describes lifecycle. Recheck mode
-     needs status transitions (e.g. open → fixed → verified) to report bug resolution
-     over time, not just pass/fail per run.
-
-2. **Chat/edit conversational memory**: Single-turn for v1.
-   - Each checklist note or test case edit instruction is sent with the current
-     state (checklist or test case) and processed independently.
-   - No persistent multi-turn conversation history is stored per editing session in v1.
-   - Multi-turn memory may be added later without requiring a schema change —
-     this is a context-passing decision, not a data model decision.
-
-3. **Pass/fail determination**: AI-assisted with mandatory user confirmation.
-   - After execution, the system uses vision-based comparison (screenshot vs.
-     expected_output) to propose a pass/fail result per test case.
-   - The proposed result is never final on its own — the user reviews and
-     confirms or overrides each result before it is recorded as final in
-     test_run_results.
-   - Rationale: keeps a human as final authority, consistent with the
-     human-in-the-loop principle in Section 2.
-
-4. **Deployment/hosting target**: Still open — not required before building
-   and testing the application locally. Revisit once the core flow (Full Check
-   mode, end to end) works on a local machine.
+1. **bug_status**: Resolved. `bug_status` (enum: open/fixed/verified/closed) is a separate field from `bug_severity`.
+2. **Chat memory**: Resolved. Checklist and test case chat is single-turn for v1 (note + current state → new state); no multi-turn conversational memory.
+3. **Pass/fail determination**: Resolved. Pass/fail is AI-proposed from a screenshot, and the user must confirm it before it is final.
+4. **Deployment/hosting target**: Still open — revisit after core flow is working locally.
