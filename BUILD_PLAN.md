@@ -25,8 +25,9 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 
 ## Phase 2: Mode 1, Full Check (build and test fully before Phase 3)
 - [x] 5. URL analysis script: Playwright loads a URL, saves a screenshot and `page.json` of interactive elements
-- [ ] 6. Checklist generation: send page data to the Claude API, return a functionality checklist
-- [ ] 7. Checklist UI: checkboxes plus a notes input (single-turn)
+- [x] 6. Checklist generation: send page data to the Claude API, return a functionality checklist
+- [ ] 7a. API endpoints and database storage for the checklist
+- [ ] 7b. Checklist UI: checkboxes plus a notes input (single-turn)
 - [ ] 8. Test case generation: approved checklist to test cases matching the 12-column schema
 - [ ] 9. Test case review UI: AG Grid, manual edit plus instruction-based edit with a diff
 - [ ] 10. Execution engine: BullMQ worker runs approved cases in Playwright, one screenshot per case
@@ -53,4 +54,4 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - [ ] 23. Decide hosting and deploy
 
 ## Current focus
-Phase 2, step 6: Checklist generation.
+Phase 2, step 7a: API endpoints and database storage for the checklist.
