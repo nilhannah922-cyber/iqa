@@ -1,0 +1,282 @@
+:root {
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --text: #1b1b1f;
+  --muted: #61616b;
+  --border: #dcdce1;
+  --accent: #2f5bea;
+  --accent-text: #ffffff;
+  --accent-soft: #eef2fe;
+  --danger-bg: #fdecec;
+  --danger-text: #8a1c1c;
+  --danger-border: #f1b5b5;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131316;
+    --surface: #1c1c21;
+    --text: #ececf1;
+    --muted: #a0a0ab;
+    --border: #34343c;
+    --accent: #7d9bff;
+    --accent-text: #0e0e12;
+    --accent-soft: #232a40;
+    --danger-bg: #3a1d1f;
+    --danger-text: #ffc4c4;
+    --danger-border: #6b3236;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    15px/1.5 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
+
+.container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 16px 64px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.85rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+input[type="text"],
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+
+input[type="text"]:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.link {
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.url-form {
+  display: flex;
+  gap: 8px;
+  margin: 24px 0 16px;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.spinner {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+.alert {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.checklist {
+  margin-top: 24px;
+}
+
+.checklist-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.checklist-header p {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.counter {
+  margin: 0;
+}
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.item label {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.item.on label {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.item input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.item-title {
+  display: block;
+  font-weight: 600;
+}
+
+.item-desc {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.badge {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.note-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.note-form label {
+  font-weight: 600;
+}
+
+.note-form button {
+  justify-self: start;
+}
+
+.next-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+footer {
+  margin-top: 48px;
+}
+
+@media (max-width: 480px) {
+  .url-form {
+    flex-direction: column;
+  }
+}
