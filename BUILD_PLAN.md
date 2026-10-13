@@ -24,7 +24,7 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - [ ] Commit `.gitignore` and the `prisma/migrations` folder
 
 ## Phase 2: Mode 1, Full Check (build and test fully before Phase 3)
-- [ ] 5. URL analysis script: Playwright loads a URL, saves a screenshot and `page.json` of interactive elements
+- [x] 5. URL analysis script: Playwright loads a URL, saves a screenshot and `page.json` of interactive elements
 - [ ] 6. Checklist generation: send page data to the Claude API, return a functionality checklist
 - [ ] 7. Checklist UI: checkboxes plus a notes input (single-turn)
 - [ ] 8. Test case generation: approved checklist to test cases matching the 12-column schema
@@ -53,4 +53,4 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - [ ] 23. Decide hosting and deploy
 
 ## Current focus
-Phase 2, step 5: URL analysis script.
+Phase 2, step 6: Checklist generation.
