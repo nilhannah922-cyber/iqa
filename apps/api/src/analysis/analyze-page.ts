@@ -55,8 +55,9 @@ export interface AnalysisResult {
   analysis: PageAnalysis;
   /** PNG bytes of the full-page screenshot. */
   screenshot: Buffer;
-  screenshotPath: string;
-  pageJsonPath: string;
+  /** Storage keys, e.g. "analysis/<timestamp>/page.png". */
+  screenshotKey: string;
+  pageJsonKey: string;
 }
 
 export class AnalysisError extends Error {}
@@ -384,12 +385,12 @@ export async function analyzePage(
       elements,
     };
 
-    const screenshotPath = await storage.save(`${folder}/page.png`, screenshot);
-    const pageJsonPath = await storage.save(
+    const screenshotKey = await storage.save(`${folder}/page.png`, screenshot);
+    const pageJsonKey = await storage.save(
       `${folder}/page.json`,
       JSON.stringify(analysis, null, 2) + '\n',
     );
-    return { analysis, screenshot, screenshotPath, pageJsonPath };
+    return { analysis, screenshot, screenshotKey, pageJsonKey };
   } finally {
     await browser.close();
   }
@@ -397,8 +398,10 @@ export async function analyzePage(
 
 async function main() {
   try {
-    const { analysis, screenshotPath, pageJsonPath } = await analyzePage(
+    const storage = new LocalDiskStorage();
+    const { analysis, screenshotKey, pageJsonKey } = await analyzePage(
       process.argv[2],
+      storage,
     );
     console.log(`Analyzed ${analysis.final_url} ("${analysis.title}")`);
     console.log(
@@ -407,8 +410,8 @@ async function main() {
         .map(([k, v]) => `${k}=${v}`)
         .join(', '),
     );
-    console.log(`Screenshot: ${screenshotPath}`);
-    console.log(`page.json:  ${pageJsonPath}`);
+    console.log(`Screenshot: ${storage.resolve(screenshotKey)}`);
+    console.log(`page.json:  ${storage.resolve(pageJsonKey)}`);
   } catch (err) {
     if (err instanceof AnalysisError) {
       console.error(`Error: ${err.message}`);
