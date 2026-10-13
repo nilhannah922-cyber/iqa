@@ -10,13 +10,14 @@ import type { PageAnalysis } from '../analysis/analyze-page';
 import {
   ClaudeError,
   ClaudeJsonClient,
-  allSelectors,
+  pageSelectors,
   screenshotBlock,
 } from '../claude/claude-json';
 import {
   STEP_ACTIONS,
   STEP_ACTION_NAMES,
   StepAction,
+  isExpectAction,
   validateStepAction,
 } from './step-actions';
 
@@ -110,17 +111,20 @@ function schemaFor(itemIds: string[]) {
 const ACTION_REFERENCE = Object.entries(STEP_ACTIONS)
   .map(
     ([name, spec]) =>
-      `- ${name}: selector ${spec.selector}, value ${spec.value}. ${spec.note}`,
+      `- ${name}: selector ${spec.selector}${spec.content ? ' (interactive or content)' : spec.selector === 'none' ? '' : ' (interactive only)'}, value ${spec.value}. ${spec.note}`,
   )
   .join('\n');
 
 const SYSTEM_PROMPT = `You are a senior QA engineer writing functional test cases for one web page.
-You receive a screenshot of the page, page.json (its interactive elements with CSS selectors) and the approved checklist items.
+You receive a screenshot of the page, page.json and the approved checklist items. page.json lists the page's interactive elements under "elements" and its visible text blocks (headings, labels, paragraphs, list items) under "content", each with a CSS selector.
 
 Write test cases for the approved checklist items only. Each test case is a sequence of steps that an automated Playwright runner will execute exactly as written, with no AI at run time.
 
 Coverage:
 - For each checklist item, write the happy path plus the obvious negative or edge cases. Use 1 to ${MAX_CASES_PER_ITEM} cases per item; prefer fewer, meaningful cases. Keep the whole set small enough for a person to review (at most ${MAX_CASES_TOTAL} cases).
+- For a form, include at least one negative case (invalid or empty input) when the checklist item is about input, validation or submission.
+- Every case must contain at least one expect_* step that verifies what its checklist item is about. A case that only performs actions is not a test.
+- Do not repeat a check that another case in this set already covers; give each case a distinct purpose.
 - Each case is independent: start with a "goto" step (empty value means the analyzed page URL).
 - Keep cases short (at most ${MAX_STEPS_PER_CASE} steps).
 
@@ -132,17 +136,19 @@ Each case:
 Each step:
 - step_details: the exact action in plain English for a human reader.
 - expected_output: what should be true after this step.
-- test_data: the input data used in this step, or "" if none.
+- test_data: only data typed or selected in this step (the same text as a fill or select value). Use "" for checks, clicks and navigation.
 - action, selector, value: the machine-readable step. Use "" for selector or value when the action does not take one.
   Allowed actions:
 ${ACTION_REFERENCE}
-- Use only selectors that appear in page.json, copied exactly. Prefer the checklist item's related_selectors.
+- Use only selectors that appear in page.json, copied exactly. Prefer the checklist item's related_selectors. Content selectors are only for expect_visible, expect_text and wait.
+- Do not add fixed pauses: expect_* steps retry until they pass or time out. Use wait only to wait for a specific element to appear.
 - Verify outcomes with expect_* steps. Only assert things you can observe on this page or in its URL/title; do not assume server responses, pages or messages you cannot see.
 - Do not include results, bug ids, severities or screenshots.`;
 
 /**
  * Validates Claude's reply. Structural problems throw. Invalid steps are
- * dropped and reported; a case left with no steps is dropped and reported.
+ * dropped and reported; a case left with no steps, or with no expect_* step,
+ * is dropped and reported.
  */
 export function validateGeneratedCases(
   raw: unknown,
@@ -158,7 +164,7 @@ export function validateGeneratedCases(
     throw new ClaudeError('Claude returned JSON without a "test_cases" array.');
   }
 
-  const known = allSelectors(analysis);
+  const known = pageSelectors(analysis);
   const itemIds = new Set(items.map((i) => i.id));
   const perItem = new Map<string, number>();
   const warnings: string[] = [];
@@ -236,6 +242,10 @@ export function validateGeneratedCases(
 
     if (steps.length === 0) {
       warnings.push(`${name}: dropped, no valid steps left.`);
+      return;
+    }
+    if (!steps.some((s) => isExpectAction(s.step_action.action))) {
+      warnings.push(`${name}: dropped, no expect_* step left to verify it.`);
       return;
     }
     perItem.set(itemId, count + 1);

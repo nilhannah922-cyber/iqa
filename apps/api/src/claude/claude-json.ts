@@ -59,10 +59,26 @@ export function assertApiKeySet(): void {
   }
 }
 
-/** Every selector listed in page.json. */
-export function allSelectors(analysis: PageAnalysis): Set<string> {
+/** Selectors in page.json, split by kind. Old files have no content list. */
+export interface PageSelectors {
+  /** Interactive elements: forms, inputs, buttons, links, ... */
+  interactive: Set<string>;
+  /** Visible text blocks (headings, labels, ...): assertions only. */
+  content: Set<string>;
+}
+
+export function pageSelectors(analysis: PageAnalysis): PageSelectors {
   const groups = Object.values(analysis.elements) as ElementInfo[][];
-  return new Set(groups.flat().map((el) => el.selector));
+  return {
+    interactive: new Set(groups.flat().map((el) => el.selector)),
+    content: new Set((analysis.content ?? []).map((c) => c.selector)),
+  };
+}
+
+/** Every selector listed in page.json, interactive and content. */
+export function allSelectors(analysis: PageAnalysis): Set<string> {
+  const { interactive, content } = pageSelectors(analysis);
+  return new Set([...interactive, ...content]);
 }
 
 function pngSize(png: Buffer): { width: number; height: number } | null {

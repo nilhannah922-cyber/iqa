@@ -3,70 +3,94 @@
  * Single source of truth: test case generation validates against it and the
  * execution engine (BUILD_PLAN.md step 10) must import the same list.
  *
- * selector: a CSS selector from the run's page.json.
+ * selector: a CSS selector from the run's page.json. Interactive-element
+ *           selectors work for every action that takes one; content selectors
+ *           (headings, labels, text blocks) only where content is true.
  * value:    action input; always a string (see each action's note).
  */
 export const STEP_ACTIONS = {
   goto: {
     selector: 'none',
     value: 'optional',
+    content: false,
     note: 'Open a URL; empty value means the analyzed page URL.',
   },
-  click: { selector: 'required', value: 'none', note: 'Click the element.' },
+  click: {
+    selector: 'required',
+    value: 'none',
+    content: false,
+    note: 'Click the element.',
+  },
   fill: {
     selector: 'required',
     value: 'required',
+    content: false,
     note: 'Replace the field content with value. To leave a field empty, simply do not fill it.',
   },
   check: {
     selector: 'required',
     value: 'none',
+    content: false,
     note: 'Tick a checkbox or radio.',
   },
-  uncheck: { selector: 'required', value: 'none', note: 'Untick a checkbox.' },
+  uncheck: {
+    selector: 'required',
+    value: 'none',
+    content: false,
+    note: 'Untick a checkbox.',
+  },
   select: {
     selector: 'required',
     value: 'required',
+    content: false,
     note: 'Choose the option with this label or value in a dropdown.',
   },
   press: {
     selector: 'optional',
     value: 'required',
+    content: false,
     note: 'Press a key (Playwright key name, e.g. "Enter", "Tab") on the element, or on the focused element when no selector is given.',
   },
   wait: {
-    selector: 'optional',
+    selector: 'required',
     value: 'required',
-    note: 'With a selector: wait until it is visible, value = timeout in ms. Without: pause for value ms. Max 30000.',
+    content: true,
+    note: 'Wait until the element is visible; value = timeout in ms (max 30000). Fixed pauses are not allowed.',
   },
   expect_visible: {
     selector: 'required',
     value: 'required',
+    content: true,
     note: 'value "true" = element is visible, "false" = hidden or absent.',
   },
   expect_text: {
     selector: 'required',
     value: 'required',
+    content: true,
     note: "Element's visible text contains value.",
   },
   expect_value: {
     selector: 'required',
     value: 'required',
+    content: false,
     note: "Input's current value equals value.",
   },
   expect_checked: {
     selector: 'required',
     value: 'required',
+    content: false,
     note: 'value "true" = checked, "false" = not checked.',
   },
   expect_url: {
     selector: 'none',
     value: 'required',
+    content: false,
     note: 'Current URL contains value.',
   },
   expect_title: {
     selector: 'none',
     value: 'required',
+    content: false,
     note: 'Page title contains value.',
   },
 } as const satisfies Record<
@@ -74,6 +98,8 @@ export const STEP_ACTIONS = {
   {
     selector: 'required' | 'optional' | 'none';
     value: 'required' | 'optional' | 'none';
+    /** Accepts content (non-interactive text) selectors. */
+    content: boolean;
     note: string;
   }
 >;
@@ -88,6 +114,16 @@ export interface StepAction {
   value?: string;
 }
 
+/** Selectors a step may use, from the run's page.json. */
+export interface AllowedSelectors {
+  interactive: Set<string>;
+  content: Set<string>;
+}
+
+export function isExpectAction(name: StepActionName): boolean {
+  return name.startsWith('expect_');
+}
+
 const MAX_WAIT_MS = 30_000;
 
 function isActionName(name: unknown): name is StepActionName {
@@ -100,7 +136,7 @@ function isActionName(name: unknown): name is StepActionName {
  */
 export function validateStepAction(
   raw: unknown,
-  knownSelectors: Set<string>,
+  selectors: AllowedSelectors,
 ): { ok: true; step: StepAction } | { ok: false; reason: string } {
   if (typeof raw !== 'object' || raw === null) {
     return { ok: false, reason: 'step action is not an object' };
@@ -125,8 +161,16 @@ export function validateStepAction(
   if (spec.selector === 'none' && sel) {
     return { ok: false, reason: `"${action}" does not take a selector` };
   }
-  if (sel && !knownSelectors.has(sel)) {
-    return { ok: false, reason: `selector not in page.json: ${sel}` };
+  if (sel && !selectors.interactive.has(sel)) {
+    if (!selectors.content.has(sel)) {
+      return { ok: false, reason: `selector not in page.json: ${sel}` };
+    }
+    if (!spec.content) {
+      return {
+        ok: false,
+        reason: `"${action}" needs an interactive element, not a text block: ${sel}`,
+      };
+    }
   }
   if (spec.value === 'required' && val === undefined) {
     return { ok: false, reason: `"${action}" needs a value` };
