@@ -29,6 +29,7 @@ import {
   assertApiKeySet,
   pageSelectors,
 } from '../claude/claude-json';
+import { assertSheetEditable } from '../execution/execution-guard';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ArtifactSource,
@@ -159,6 +160,7 @@ Rules:
 ${ACTION_REFERENCE}
 - Use only selectors that appear in page.json, copied exactly. Content selectors are only for expect_visible, expect_text and wait; click also accepts a content selector whose tag is "label".
 - test_data holds only data typed or selected in that step ("" for checks, clicks and navigation). Keep qa_comments as they are unless the instruction is about them.
+- For expect_value, an empty value "" checks that the field is empty.
 - Use expect_focused for focus checks; do not add fixed pauses.
 - Never set results, bug ids, severities or screenshots.
 - If the instruction is unclear, impossible on this page, or already satisfied, return no operations and explain why in notes. Otherwise notes may be "".`;
@@ -344,6 +346,7 @@ export class EditProposalsService {
     await this.prisma.$transaction(
       async (tx) => {
         await lockNumbering(tx);
+        await this.assertEditable(tx, runId);
         const sheet = await this.loadSheet(tx, runId);
         if (sheetVersion(sheet) !== proposal.sheet_version) {
           throw new ConflictException(
@@ -434,6 +437,7 @@ export class EditProposalsService {
     }
     await this.prisma.$transaction(async (tx) => {
       await lockNumbering(tx);
+      await this.assertEditable(tx, runId);
       const sheet = await this.loadSheet(tx, runId);
       if (sheetVersion(sheet) !== sheetVersion(ctx.sheet)) {
         throw new ConflictException(
@@ -511,6 +515,15 @@ export class EditProposalsService {
   }
 
   // -------------------------------------------------------------- loading
+
+  /** 409 while the run's test cases are being executed. */
+  private async assertEditable(tx: Prisma.TransactionClient, runId: string) {
+    const run = await tx.test_runs.findUnique({
+      where: { id: runId },
+      select: { execution_status: true },
+    });
+    if (run) assertSheetEditable(run);
+  }
 
   private async findRun(runId: string) {
     const run = await this.prisma.test_runs.findUnique({

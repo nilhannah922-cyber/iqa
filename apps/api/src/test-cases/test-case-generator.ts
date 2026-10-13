@@ -145,7 +145,7 @@ Each step:
 - step_details: the exact action in plain English for a human reader.
 - expected_output: what should be true after this step.
 - test_data: only data typed or selected in this step (the same text as a fill or select value). Use "" for checks, clicks and navigation.
-- action, selector, value: the machine-readable step. Use "" for selector or value when the action does not take one.
+- action, selector, value: the machine-readable step. Use "" for selector or value when the action does not take one. For expect_value, an empty value "" is meaningful: it checks that the field is empty (e.g. "telephone stays empty").
   Allowed actions:
 ${ACTION_REFERENCE}
 - Use only selectors that appear in page.json, copied exactly. Prefer the checklist item's related_selectors. Content selectors are only for expect_visible, expect_text and wait; click also accepts a content selector whose tag is "label".
