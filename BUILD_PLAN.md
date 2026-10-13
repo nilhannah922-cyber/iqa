@@ -21,7 +21,7 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - [x] Initial migration applied (`init`)
 - [x] Both apps start locally
 - [ ] Pin ports (API 4000, web 3000) and enable CORS
-- [ ] Commit `.gitignore` and the `prisma/migrations` folder
+- [x] Commit `.gitignore` and the `prisma/migrations` folder
 
 ## Phase 2: Mode 1, Full Check (build and test fully before Phase 3)
 - [x] 5. URL analysis script: Playwright loads a URL, saves a screenshot and `page.json` of interactive elements
