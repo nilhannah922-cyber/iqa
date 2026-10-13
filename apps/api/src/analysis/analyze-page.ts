@@ -53,6 +53,8 @@ export interface PageAnalysis {
 
 export interface AnalysisResult {
   analysis: PageAnalysis;
+  /** PNG bytes of the full-page screenshot. */
+  screenshot: Buffer;
   screenshotPath: string;
   pageJsonPath: string;
 }
@@ -387,7 +389,7 @@ export async function analyzePage(
       `${folder}/page.json`,
       JSON.stringify(analysis, null, 2) + '\n',
     );
-    return { analysis, screenshotPath, pageJsonPath };
+    return { analysis, screenshot, screenshotPath, pageJsonPath };
   } finally {
     await browser.close();
   }
