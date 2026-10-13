@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AnalysisController } from './analysis.controller';
-import { AnalysisService } from './analysis.service';
+import { AnalysisService, STORAGE } from './analysis.service';
+import { LocalDiskStorage } from './storage';
 
 @Module({
   controllers: [AnalysisController],
-  providers: [AnalysisService],
+  providers: [
+    AnalysisService,
+    { provide: STORAGE, useFactory: () => new LocalDiskStorage() },
+  ],
 })
 export class AnalysisModule {}

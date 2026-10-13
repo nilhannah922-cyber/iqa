@@ -4,6 +4,7 @@
  * Usage (from apps/api):  npm run checklist -- https://example.com
  */
 import { AnalysisError, analyzePage } from '../analysis/analyze-page';
+import { LocalDiskStorage } from '../analysis/storage';
 import { ChecklistError, ChecklistService, loadEnv } from './checklist.service';
 
 async function main() {
@@ -11,11 +12,13 @@ async function main() {
     loadEnv();
     const service = new ChecklistService(); // fails fast if the key is unset
 
-    const { analysis, screenshot, screenshotPath } = await analyzePage(
+    const storage = new LocalDiskStorage();
+    const { analysis, screenshot, screenshotKey } = await analyzePage(
       process.argv[2],
+      storage,
     );
     console.log(`Analyzed ${analysis.final_url}`);
-    console.log(`Screenshot: ${screenshotPath}`);
+    console.log(`Screenshot: ${storage.resolve(screenshotKey)}`);
     console.log(`Asking ${service.model} for a checklist...\n`);
 
     const result = await service.generate(analysis, screenshot);

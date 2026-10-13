@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -16,6 +17,10 @@ import {
 } from '../checklist/checklist.service';
 import { AnalysisError, analyzePage, parseUrl } from './analyze-page';
 import { CreateChecklistItemDto, UpdateChecklistItemDto } from './analysis.dto';
+import type { StorageProvider } from './storage';
+
+/** Injection token for the StorageProvider used to save analysis files. */
+export const STORAGE = Symbol('STORAGE');
 
 // Items are returned nested under their run, so the foreign key is redundant.
 const itemOmit = { test_run_id: true } as const;
@@ -43,7 +48,10 @@ function toView(run: RunWithItems): AnalysisRunView {
 export class AnalysisService {
   private readonly logger = new Logger(AnalysisService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(STORAGE) private readonly storage: StorageProvider,
+  ) {}
 
   async create(rawUrl: string): Promise<AnalysisRunView> {
     let url: string;
@@ -63,14 +71,15 @@ export class AnalysisService {
     });
 
     try {
-      const { analysis, screenshot, screenshotPath, pageJsonPath } =
-        await analyzePage(url);
+      const { analysis, screenshot, screenshotKey, pageJsonKey } =
+        await analyzePage(url, this.storage);
+      // Store storage keys, not locations; resolve with this.storage.resolve().
       await this.prisma.test_runs.update({
         where: { id: run.id },
         data: {
           status: 'generating_checklist',
-          screenshot_path: screenshotPath,
-          page_json_path: pageJsonPath,
+          screenshot_path: screenshotKey,
+          page_json_path: pageJsonKey,
         },
       });
 

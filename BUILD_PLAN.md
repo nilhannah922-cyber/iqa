@@ -20,13 +20,13 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - [x] Docker Compose: PostgreSQL + Redis running
 - [x] Initial migration applied (`init`)
 - [x] Both apps start locally
-- [ ] Pin ports (API 4000, web 3000) and enable CORS
+- [x] Pin ports (API 4000, web 3000) and enable CORS
 - [x] Commit `.gitignore` and the `prisma/migrations` folder
 
 ## Phase 2: Mode 1, Full Check (build and test fully before Phase 3)
 - [x] 5. URL analysis script: Playwright loads a URL, saves a screenshot and `page.json` of interactive elements
 - [x] 6. Checklist generation: send page data to the Claude API, return a functionality checklist
-- [ ] 7a. API endpoints and database storage for the checklist
+- [x] 7a. API endpoints and database storage for the checklist
 - [ ] 7b. Checklist UI: checkboxes plus a notes input (single-turn)
 - [ ] 8. Test case generation: approved checklist to test cases matching the 12-column schema
 - [ ] 9. Test case review UI: AG Grid, manual edit plus instruction-based edit with a diff
@@ -54,4 +54,4 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - [ ] 23. Decide hosting and deploy
 
 ## Current focus
-Phase 2, step 7a: API endpoints and database storage for the checklist.
+Phase 2, step 7b: checklist UI.
