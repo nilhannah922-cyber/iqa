@@ -12,6 +12,7 @@ import {
   themeQuartz,
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
+import EditRequestPanel from "./edit-request-panel";
 import {
   StepAction,
   TestCaseRow,
@@ -141,7 +142,7 @@ export default function TestCaseSheet({
       {
         field: "test_case_number",
         headerName: "Test case #",
-        width: 104,
+        width: 96,
         pinned: "left",
         spanRows: sameCase,
         cellClass: "cell-case",
@@ -150,39 +151,39 @@ export default function TestCaseSheet({
         editable: true,
         spanRows: sameCase,
         flex: 1,
-        minWidth: 120,
+        minWidth: 110,
       }),
       text("test_scenario", "Scenario", {
         editable: true,
         spanRows: sameCase,
         flex: 1.4,
-        minWidth: 150,
+        minWidth: 140,
       }),
-      { field: "test_step_number", headerName: "Step", width: 64 },
+      { field: "test_step_number", headerName: "Step", width: 58 },
       text("step_details", "Step details", {
         editable: true,
-        flex: 1.8,
-        minWidth: 160,
+        flex: 1.7,
+        minWidth: 150,
       }),
       text("expected_output", "Expected output", {
         editable: true,
         flex: 1.6,
-        minWidth: 150,
+        minWidth: 140,
       }),
       text("test_data", "Test data", {
         editable: true,
-        flex: 1,
-        minWidth: 100,
+        flex: 1.3,
+        minWidth: 150,
       }),
       { field: "result", headerName: "Result", width: 128 },
-      { field: "bug_id", headerName: "Bug ID", width: 80 },
-      { field: "screenshot", headerName: "Screenshot", width: 100 },
+      { field: "bug_id", headerName: "Bug ID", width: 72 },
+      { field: "screenshot", headerName: "Screenshot", width: 96 },
       text("qa_comments", "QA comments", {
         editable: true,
-        flex: 1,
-        minWidth: 110,
+        flex: 0.9,
+        minWidth: 100,
       }),
-      { field: "bug_severity", headerName: "Bug severity", width: 104 },
+      { field: "bug_severity", headerName: "Bug severity", width: 96 },
     ];
   }, []);
 
@@ -335,6 +336,8 @@ export default function TestCaseSheet({
           </button>
         </div>
       </div>
+
+      <EditRequestPanel runId={runId} onSheetChange={onSheetChange} />
 
       <div className="toolbar">
         <label htmlFor="sheet-filter" className="sr-only">

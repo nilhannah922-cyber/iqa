@@ -37,20 +37,13 @@ import {
   GeneratedCase,
   TestCaseGenerator,
 } from './test-case-generator';
+import {
+  lockNumbering,
+  nextTestCaseNumbers,
+  preserveRawReply,
+} from './test-case-store';
 
-/**
- * Persistent numbering: one global sequence TC-0001, TC-0002, ... across all
- * runs and pages. The next number is the highest existing TC-n plus 1, so
- * numbers never depend on run ids and never collide between pages.
- */
-const NUMBER_PREFIX = 'TC-';
-const NUMBER_WIDTH = 4;
-// Serializes numbering across concurrent generations (transaction-scoped lock).
-const NUMBERING_LOCK_KEY = 4_203_771;
-
-export function formatTestCaseNumber(n: number): string {
-  return `${NUMBER_PREFIX}${String(n).padStart(NUMBER_WIDTH, '0')}`;
-}
+export { formatTestCaseNumber } from './test-case-store';
 
 const rowSelect = {
   test_case_number: true,
@@ -173,11 +166,18 @@ export class TestCasesService {
       if (err instanceof ClaudeError) {
         const rawKey =
           err.rawReply !== undefined
-            ? await this.preserveRawReply(runId, err.message, {
-                rawReply: err.rawReply,
-                model: err.model,
-                usage: err.usage,
-              })
+            ? await preserveRawReply(
+                this.storage,
+                this.logger,
+                runId,
+                'testcases',
+                err.message,
+                {
+                  rawReply: err.rawReply,
+                  model: err.model,
+                  usage: err.usage,
+                },
+              )
             : undefined;
         throw new BadGatewayException({
           message: err.message,
@@ -206,8 +206,11 @@ export class TestCasesService {
         itemSource,
       ));
     } catch (err) {
-      await this.preserveRawReply(
+      await preserveRawReply(
+        this.storage,
+        this.logger,
         runId,
+        'testcases',
         `Saving test cases failed: ${err instanceof Error ? err.message : String(err)}`,
         generated,
       );
@@ -483,49 +486,6 @@ export class TestCasesService {
     }
   }
 
-  /**
-   * Writes Claude's raw reply to storage so a paid result is never lost when
-   * validation or saving fails. Returns the storage key (also logged), or
-   * undefined if even that write failed.
-   */
-  private async preserveRawReply(
-    runId: string,
-    reason: string,
-    reply: {
-      rawReply: string;
-      model?: string;
-      usage?: { input_tokens: number; output_tokens: number };
-    },
-  ): Promise<string | undefined> {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const key = `analysis/${runId}/testcases-raw-${timestamp}.json`;
-    const record = {
-      run_id: runId,
-      saved_at: new Date().toISOString(),
-      reason,
-      model: reply.model ?? null,
-      usage: reply.usage
-        ? {
-            input_tokens: reply.usage.input_tokens,
-            output_tokens: reply.usage.output_tokens,
-          }
-        : null,
-      raw_reply: reply.rawReply,
-    };
-    try {
-      await this.storage.save(key, JSON.stringify(record, null, 2) + '\n');
-      this.logger.error(
-        `Run ${runId}: ${reason} Claude's raw reply was saved to storage key ${key}`,
-      );
-      return key;
-    } catch (err) {
-      this.logger.error(
-        `Run ${runId}: ${reason} Saving Claude's raw reply also failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      return undefined;
-    }
-  }
-
   private rowsForRun(runId: string): Promise<TestCaseRow[]> {
     return this.prisma.test_cases.findMany({
       where: { test_run_id: runId },
@@ -544,7 +504,7 @@ export class TestCasesService {
     itemSource: Map<string, ArtifactSource>,
   ): Promise<{ replaced: number; kept: number }> {
     return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${NUMBERING_LOCK_KEY})`;
+      await lockNumbering(tx);
 
       const old = await tx.test_cases.findMany({
         where: { test_run_id: runId },
@@ -569,13 +529,10 @@ export class TestCasesService {
         });
       }
 
-      const [{ max }] = await tx.$queryRaw<{ max: number }[]>`
-        SELECT COALESCE(MAX(CAST(SUBSTRING(test_case_number FROM ${NUMBER_PREFIX.length + 1}::int) AS INTEGER)), 0)::int AS max
-        FROM test_cases
-        WHERE test_case_number ~ ${`^${NUMBER_PREFIX}[0-9]+$`}`;
+      const numbers = await nextTestCaseNumbers(tx, cases.length);
 
       const rows: Prisma.test_casesCreateManyInput[] = cases.flatMap((c, i) => {
-        const number = formatTestCaseNumber(max + i + 1);
+        const number = numbers[i];
         return c.steps.map((s, si) => ({
           test_case_number: number,
           test_page_area: c.test_page_area,

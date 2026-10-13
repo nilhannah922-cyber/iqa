@@ -1,5 +1,6 @@
 import {
   IsObject,
+  Matches,
   IsOptional,
   IsString,
   MaxLength,
@@ -44,4 +45,12 @@ export class UpdateTestStepDto {
   @IsOptional()
   @IsObject()
   step_action?: Record<string, unknown>;
+}
+
+/** POST .../test-cases/edit-proposals */
+export class CreateEditProposalDto {
+  @IsString()
+  @Matches(/\S/, { message: 'instruction should not be blank' })
+  @MaxLength(2000)
+  instruction!: string;
 }

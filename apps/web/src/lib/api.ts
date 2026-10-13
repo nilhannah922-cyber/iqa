@@ -224,3 +224,97 @@ export function approveTestCases(runId: string) {
     method: "POST",
   });
 }
+
+// ---- Instruction-based edits (step 9b) ----
+
+export interface FieldChange {
+  field: string;
+  before: string | null;
+  after: string | null;
+}
+
+export interface DiffStep {
+  step_details: string;
+  expected_output: string;
+  test_data: string | null;
+  qa_comments: string | null;
+  step_action: StepAction;
+}
+
+export interface StepDiff {
+  status: "added" | "removed" | "changed";
+  step_before: number | null;
+  step_after: number | null;
+  step?: DiffStep;
+  changes?: FieldChange[];
+}
+
+export interface CaseDiff {
+  status: "added" | "removed" | "changed";
+  test_case_number: string | null;
+  label: string;
+  test_page_area: string;
+  test_scenario: string;
+  checklist_item_id: string | null;
+  fields: FieldChange[];
+  steps: StepDiff[];
+  reasons: string[];
+}
+
+export interface SheetDiff {
+  cases: CaseDiff[];
+  summary: {
+    cases_added: number;
+    cases_removed: number;
+    cases_changed: number;
+    steps_added: number;
+    steps_removed: number;
+    steps_changed: number;
+  };
+}
+
+export interface EditProposal {
+  id: string;
+  run_id: string;
+  instruction: string;
+  status: "proposed" | "applied" | "discarded" | "empty";
+  created_at: string;
+  decided_at: string | null;
+  diff: SheetDiff;
+  warnings: string[];
+  operation_count: number;
+  model: string | null;
+  usage: { input_tokens: number; output_tokens: number } | null;
+}
+
+/** Proposals wait for Claude; allow up to 2 minutes. */
+const PROPOSAL_TIMEOUT_MS = 120_000;
+
+const proposalsPath = (runId: string) =>
+  `/analysis/${runId}/test-cases/edit-proposals`;
+
+export function proposeEdit(runId: string, instruction: string) {
+  return request<EditProposal>(proposalsPath(runId), {
+    method: "POST",
+    body: JSON.stringify({ instruction }),
+    timeoutMs: PROPOSAL_TIMEOUT_MS,
+  });
+}
+
+export function listEditProposals(runId: string) {
+  return request<EditProposal[]>(proposalsPath(runId));
+}
+
+export function applyEditProposal(runId: string, proposalId: string) {
+  return request<{ proposal: EditProposal; sheet: TestCaseSheet }>(
+    `${proposalsPath(runId)}/${proposalId}/apply`,
+    { method: "POST" },
+  );
+}
+
+export function discardEditProposal(runId: string, proposalId: string) {
+  return request<EditProposal>(
+    `${proposalsPath(runId)}/${proposalId}/discard`,
+    { method: "POST" },
+  );
+}

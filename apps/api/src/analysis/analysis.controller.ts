@@ -9,7 +9,11 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { UpdateTestStepDto } from '../test-cases/test-cases.dto';
+import { EditProposalsService } from '../test-cases/edit-proposals.service';
+import {
+  CreateEditProposalDto,
+  UpdateTestStepDto,
+} from '../test-cases/test-cases.dto';
 import { TestCasesService } from '../test-cases/test-cases.service';
 
 function caseNumber(value: string): string {
@@ -32,6 +36,7 @@ export class AnalysisController {
   constructor(
     private readonly analysis: AnalysisService,
     private readonly testCases: TestCasesService,
+    private readonly editProposals: EditProposalsService,
   ) {}
 
   /** Analyzes the page and generates its checklist (takes ~20-40s). */
@@ -68,6 +73,30 @@ export class AnalysisController {
   @Get(':id/test-cases')
   listTestCases(@Param('id') id: string) {
     return this.testCases.listForRun(id);
+  }
+
+  /** Asks Claude for a diff for one plain-words instruction (~10-30s). */
+  @Post(':id/test-cases/edit-proposals')
+  proposeEdit(@Param('id') id: string, @Body() dto: CreateEditProposalDto) {
+    return this.editProposals.propose(id, dto.instruction);
+  }
+
+  @Get(':id/test-cases/edit-proposals')
+  listEditProposals(@Param('id') id: string) {
+    return this.editProposals.list(id);
+  }
+
+  @Post(':id/test-cases/edit-proposals/:proposalId/apply')
+  applyEdit(@Param('id') id: string, @Param('proposalId') proposalId: string) {
+    return this.editProposals.apply(id, proposalId);
+  }
+
+  @Post(':id/test-cases/edit-proposals/:proposalId/discard')
+  discardEdit(
+    @Param('id') id: string,
+    @Param('proposalId') proposalId: string,
+  ) {
+    return this.editProposals.discard(id, proposalId);
   }
 
   /** Marks the run's test case sheet as approved for execution. */

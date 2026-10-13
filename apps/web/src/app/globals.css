@@ -444,3 +444,247 @@ button.danger {
   word-break: normal;
   overflow-wrap: anywhere;
 }
+
+/* With overlay (zero-width) scrollbars AG Grid positions the horizontal
+   scrollbar absolutely over the body, covering the bottom of the last row on
+   narrow screens. In this auto-height grid, keep it in normal flow below the
+   rows instead. */
+.grid-wrap .ag-body-horizontal-scroll.ag-scrollbar-invisible {
+  position: static;
+}
+
+/* ---- Instruction-based edits (step 9b) ---- */
+:root {
+  --add-bg: #e7f6ec;
+  --add-text: #1d6b3a;
+  --del-bg: #fdecec;
+  --del-text: #8a1c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --add-bg: #1d3526;
+    --add-text: #9fe0b5;
+    --del-bg: #3a1d1f;
+    --del-text: #ffc4c4;
+  }
+}
+
+.edit-request {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.edit-form {
+  display: grid;
+  gap: 8px;
+}
+
+.edit-form label {
+  font-weight: 600;
+}
+
+.edit-form-actions,
+.proposal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.proposal {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.proposal-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.proposal-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.proposal-head p,
+.proposal-summary {
+  margin: 2px 0 0;
+}
+
+.proposal-summary {
+  font-weight: 600;
+}
+
+.proposal-empty {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.diff-cases,
+.diff-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.diff-case {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.diff-case-added {
+  border-color: var(--add-text);
+  background: var(--add-bg);
+}
+
+.diff-case-removed {
+  border-color: var(--del-text);
+  background: var(--del-bg);
+}
+
+.diff-case-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.diff-reason {
+  margin: 4px 0;
+}
+
+.badge-status {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-added {
+  background: var(--add-text);
+  color: var(--surface);
+}
+
+.badge-removed {
+  background: var(--del-text);
+  color: var(--surface);
+}
+
+.badge-changed {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.diff-steps {
+  margin-top: 8px;
+  gap: 4px;
+}
+
+.diff-step {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.diff-step-added {
+  background: var(--add-bg);
+  color: var(--add-text);
+}
+
+.diff-step-removed {
+  background: var(--del-bg);
+  color: var(--del-text);
+}
+
+.diff-step-removed del {
+  text-decoration: line-through;
+}
+
+.diff-step-num {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.diff-step-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.diff-change + .diff-change {
+  margin-top: 2px;
+}
+
+.diff-field {
+  font-weight: 600;
+}
+
+.diff-old {
+  color: var(--del-text);
+  background: var(--del-bg);
+  text-decoration: line-through;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+.diff-new {
+  color: var(--add-text);
+  background: var(--add-bg);
+  text-decoration: none;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+.diff-action {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.edit-history summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.edit-history ul {
+  margin: 8px 0 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.pill-applied {
+  background: var(--ok-bg);
+  color: var(--ok-text);
+}
+
+.pill-discarded,
+.pill-empty {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+@media (max-width: 600px) {
+  .diff-step {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
