@@ -18,9 +18,7 @@ import {
 import { AnalysisError, analyzePage, parseUrl } from './analyze-page';
 import { CreateChecklistItemDto, UpdateChecklistItemDto } from './analysis.dto';
 import type { StorageProvider } from './storage';
-
-/** Injection token for the StorageProvider used to save analysis files. */
-export const STORAGE = Symbol('STORAGE');
+import { STORAGE } from './storage.token';
 
 // Items are returned nested under their run, so the foreign key is redundant.
 const itemOmit = { test_run_id: true } as const;

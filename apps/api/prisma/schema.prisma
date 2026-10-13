@@ -39,22 +39,31 @@ enum artifact_source {
 }
 
 model test_cases {
-  test_case_number String
-  test_page_area   String
-  test_scenario    String
-  test_step_number Int
-  step_details     String
-  expected_output  String
-  test_data        String?
-  result           test_result
-  bug_id           String?
-  screenshot       String?
-  qa_comments      String?
-  bug_severity     bug_severity?
-  bug_status       bug_status?
-  run_results      test_run_results[]
+  test_case_number  String
+  test_page_area    String
+  test_scenario     String
+  test_step_number  Int
+  step_details      String
+  expected_output   String
+  test_data         String?
+  result            test_result
+  bug_id            String?
+  screenshot        String?
+  qa_comments       String?
+  bug_severity      bug_severity?
+  bug_status        bug_status?
+  // Not display columns (PROJECT_SPEC.md Section 5): generation link,
+  // traceability and the machine-readable step for the execution engine.
+  test_run_id       String?
+  checklist_item_id String?
+  source            artifact_source?
+  step_action       Json?
+  run_results       test_run_results[]
+  test_run          test_runs?         @relation(fields: [test_run_id], references: [id], onDelete: SetNull)
+  checklist_item    checklist_items?   @relation(fields: [checklist_item_id], references: [id], onDelete: SetNull)
 
   @@id([test_case_number, test_step_number])
+  @@index([test_run_id])
 }
 
 model test_runs {
@@ -69,6 +78,7 @@ model test_runs {
   results         test_run_results[]
   checklist_items checklist_items[]
   edit_requests   edit_requests[]
+  test_cases      test_cases[]
 }
 
 model test_run_results {
@@ -101,6 +111,7 @@ model checklist_items {
   added_by_user     Boolean         @default(false)
   source            artifact_source
   test_run          test_runs       @relation(fields: [test_run_id], references: [id])
+  test_cases        test_cases[]
 }
 
 model edit_requests {

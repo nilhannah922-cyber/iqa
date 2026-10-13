@@ -82,11 +82,18 @@ All test cases — regardless of which mode created them — use this exact colu
 
 **Decided field**: `bug_status` (enum: `open` \| `fixed` \| `verified` \| `closed`, nullable) — a separate field from bug_severity. Lets Recheck report on bug lifecycle, not just pass/fail state (see Section 11).
 
+**Non-display columns** (stored with each step row, not part of the 12 columns above or of CSV/XLSX import/export; the display columns and their order are unchanged):
+- `test_run_id` — the analysis run that generated the case.
+- `checklist_item_id`, `source` (`scan` \| `user_note` \| `cross_check`) — traceability to the checklist item and what triggered it (Section 9).
+- `step_action` — the machine-readable step the execution engine runs: `{action, selector?, value?}`. Allowed actions are defined in one shared constant (`STEP_ACTIONS`); selectors must come from the page analysis.
+
+**Numbering rule**: `test_case_number` is one global sequence `TC-0001`, `TC-0002`, … across all runs and pages (next = highest existing + 1). It never depends on run ids.
+
 ---
 
 ## 6. Data Model Notes
 
-- `test_cases` table: canonical current version of each test case (keyed by persistent `test_case_number`).
+- `test_cases` table: canonical current version of each test case (keyed by persistent `test_case_number` + `test_step_number`), linked to the generating run via `test_run_id`. Regenerating cases for a run replaces only that run's cases that have never been executed (no `test_run_results` rows).
 - `test_runs` table: one row per execution run, linked to mode (full_check / cross_check / recheck), URL, timestamp, status.
 - `test_run_results` table: one row per (test_run_id, test_case_number) — stores result, screenshot ref, comments, severity for that specific run. This is what enables Recheck's previous-vs-new comparison.
 - `checklist_items` table: functionality checklist entries per analysis, with approved/rejected/added-by-user flags.
