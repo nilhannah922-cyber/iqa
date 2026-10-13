@@ -124,5 +124,18 @@ model edit_requests {
   proposed_diff Json
   source        artifact_source
   created_at    DateTime        @default(now())
+  // Instruction-based edits (step 9b): proposed | applied | discarded | empty
+  status        String          @default("proposed")
+  /// Validated operations, applied as-is on confirm.
+  operations    Json?
+  warnings      Json?
+  /// Hash of the sheet the proposal was made against; apply refuses if it changed.
+  sheet_version String?
+  /// Claude model and token usage, for the audit trail and cost.
+  model         String?
+  usage         Json?
+  decided_at    DateTime?
   test_run      test_runs       @relation(fields: [test_run_id], references: [id])
+
+  @@index([test_run_id, created_at])
 }

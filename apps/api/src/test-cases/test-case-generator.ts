@@ -116,7 +116,7 @@ function selectorKinds(spec: (typeof STEP_ACTIONS)[StepActionName]): string {
   return ' (interactive only)';
 }
 
-const ACTION_REFERENCE = Object.entries(STEP_ACTIONS)
+export const ACTION_REFERENCE = Object.entries(STEP_ACTIONS)
   .map(
     ([name, spec]) =>
       `- ${name}: selector ${spec.selector}${selectorKinds(spec)}, value ${spec.value}. ${spec.note}`,

@@ -12,6 +12,7 @@ import {
   themeQuartz,
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
+import EditRequestPanel from "./edit-request-panel";
 import {
   StepAction,
   TestCaseRow,
@@ -335,6 +336,8 @@ export default function TestCaseSheet({
           </button>
         </div>
       </div>
+
+      <EditRequestPanel runId={runId} onSheetChange={onSheetChange} />
 
       <div className="toolbar">
         <label htmlFor="sheet-filter" className="sr-only">
