@@ -444,3 +444,11 @@ button.danger {
   word-break: normal;
   overflow-wrap: anywhere;
 }
+
+/* With overlay (zero-width) scrollbars AG Grid positions the horizontal
+   scrollbar absolutely over the body, covering the bottom of the last row on
+   narrow screens. In this auto-height grid, keep it in normal flow below the
+   rows instead. */
+.grid-wrap .ag-body-horizontal-scroll.ag-scrollbar-invisible {
+  position: static;
+}
