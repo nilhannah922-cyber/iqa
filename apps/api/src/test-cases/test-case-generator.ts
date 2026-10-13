@@ -149,6 +149,7 @@ Each step:
   Allowed actions:
 ${ACTION_REFERENCE}
 - Use only selectors that appear in page.json, copied exactly. Prefer the checklist item's related_selectors. Content selectors are only for expect_visible, expect_text and wait; click also accepts a content selector whose tag is "label".
+- expect_url compares by "contains". When a case expects navigation (e.g. after submitting a form), the expected URL fragment must not already appear in the page's starting URL (url in page.json), or the check would pass without navigating. To check that the browser stays on the page, use the full starting URL as the value.
 - Do not add fixed pauses: expect_* steps retry until they pass or time out. Use wait only to wait for a specific element to appear.
 - For focus and keyboard checks, use expect_focused on the element that should (or should not) have focus. Never infer which field has focus by typing text and checking where it landed.
 - Verify outcomes with expect_* steps. Only assert things you can observe on this page or in its URL/title; do not assume server responses, pages or messages you cannot see.

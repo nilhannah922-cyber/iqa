@@ -765,3 +765,179 @@ button.danger {
   background: var(--warn-bg);
   color: var(--warn-text);
 }
+
+/* ---- Result review (step 11) ---- */
+.discard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.review {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.review-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.review-top h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.review-top p {
+  margin: 2px 0 0;
+}
+
+.review-top progress {
+  width: min(260px, 100%);
+}
+
+.review-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.review-cases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.review-case {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.review-case.attention {
+  border-color: var(--warn-text);
+  box-shadow: inset 4px 0 0 var(--warn-text);
+}
+
+.review-case.confirmed {
+  border-color: var(--ok-text);
+}
+
+.review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.review-scenario {
+  flex: 1 1 240px;
+}
+
+.review-body {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 14px;
+}
+
+.review-thumb {
+  display: block;
+  max-height: 150px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.review-thumb img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.review-thumb-empty {
+  display: grid;
+  place-items: center;
+  height: 100px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.review-evidence {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.review-evidence p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.review-disagree {
+  color: var(--warn-text);
+  font-weight: 600;
+}
+
+.review-controls,
+.review-actions,
+.review-bug {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+button.choice {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+
+button.choice.selected {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+
+.review-bug label,
+.review-comments {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.review-bug select,
+.review-bug input,
+.review-comments textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-weight: 400;
+}
+
+.pill-warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+@media (max-width: 640px) {
+  .review-body {
+    grid-template-columns: 1fr;
+  }
+}

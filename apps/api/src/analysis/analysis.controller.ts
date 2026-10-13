@@ -10,6 +10,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { ExecutionService } from '../execution/execution.service';
+import { ConfirmResultDto } from '../results/results.dto';
+import { ResultsService } from '../results/results.service';
 import { EditProposalsService } from '../test-cases/edit-proposals.service';
 import {
   CreateEditProposalDto,
@@ -39,6 +41,7 @@ export class AnalysisController {
     private readonly testCases: TestCasesService,
     private readonly editProposals: EditProposalsService,
     private readonly execution: ExecutionService,
+    private readonly results: ResultsService,
   ) {}
 
   /** Analyzes the page and generates its checklist (takes ~20-40s). */
@@ -86,6 +89,37 @@ export class AnalysisController {
   @Get(':id/execution')
   executionStatus(@Param('id') id: string) {
     return this.execution.status(id);
+  }
+
+  /** Deletes results and screenshots; the sheet becomes editable again. */
+  @Post(':id/execution/discard')
+  discardExecution(@Param('id') id: string) {
+    return this.execution.discard(id);
+  }
+
+  /** Claude proposes pass/fail per executed case (batches of 5). */
+  @Post(':id/results/review')
+  reviewResults(@Param('id') id: string) {
+    return this.results.review(id);
+  }
+
+  @Get(':id/results')
+  listResults(@Param('id') id: string) {
+    return this.results.list(id);
+  }
+
+  @Post(':id/results/confirm-all-as-proposed')
+  confirmAllResults(@Param('id') id: string) {
+    return this.results.confirmAllAsProposed(id);
+  }
+
+  @Patch(':id/results/:caseNumber')
+  confirmResult(
+    @Param('id') id: string,
+    @Param('caseNumber') number: string,
+    @Body() dto: ConfirmResultDto,
+  ) {
+    return this.results.confirm(id, caseNumber(number), dto);
   }
 
   /** The screenshot of one executed test case (PNG). */

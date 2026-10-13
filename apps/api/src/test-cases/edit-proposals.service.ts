@@ -162,6 +162,7 @@ ${ACTION_REFERENCE}
 - test_data holds only data typed or selected in that step ("" for checks, clicks and navigation). Keep qa_comments as they are unless the instruction is about them.
 - For expect_value, an empty value "" checks that the field is empty.
 - Use expect_focused for focus checks; do not add fixed pauses.
+- expect_url compares by "contains". When a case expects navigation (e.g. after submitting a form), the expected URL fragment must not already appear in the page's starting URL (url in page.json), or the check would pass without navigating. To check that the browser stays on the page, use the full starting URL as the value.
 - Never set results, bug ids, severities or screenshots.
 - If the instruction is unclear, impossible on this page, or already satisfied, return no operations and explain why in notes. Otherwise notes may be "".`;
 

@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ExecutionState,
+  discardExecution,
   getExecution,
   screenshotUrl,
   startExecution,
 } from "@/lib/api";
+import ResultsReview from "./results-review";
 
 const POLL_MS = 2_000;
 
@@ -26,15 +28,20 @@ export default function ExecutionPanel({
   runId,
   approved,
   onActiveChange,
+  onDiscarded,
 }: {
   runId: string;
   approved: boolean;
   /** Lets the sheet know execution is queued/running (edits are refused). */
   onActiveChange?: (active: boolean) => void;
+  /** Called after results were discarded (the sheet is editable again). */
+  onDiscarded?: () => void | Promise<void>;
 }) {
   const [state, setState] = useState<ExecutionState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -78,6 +85,20 @@ export default function ExecutionPanel({
       setError(`Couldn't start the tests. ${errorText(err)}`);
     } finally {
       setStarting(false);
+    }
+  }
+
+  async function discard() {
+    setDiscarding(true);
+    setError(null);
+    try {
+      setState(await discardExecution(runId));
+      setConfirmDiscard(false);
+      await onDiscarded?.();
+    } catch (err) {
+      setError(`Couldn't discard the results. ${errorText(err)}`);
+    } finally {
+      setDiscarding(false);
     }
   }
 
@@ -188,6 +209,43 @@ export default function ExecutionPanel({
               </li>
             ))}
           </ul>
+
+          <div className="discard">
+            {confirmDiscard ? (
+              <span className="confirm" role="alert">
+                This deletes the results and any confirmations you made, and
+                unlocks the test cases for editing.
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={discard}
+                  disabled={discarding}
+                >
+                  {discarding ? "Discarding…" : "Yes, discard"}
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setConfirmDiscard(false)}
+                  disabled={discarding}
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setConfirmDiscard(true)}
+              >
+                Discard results and edit
+              </button>
+            )}
+          </div>
+
+          {state.status === "completed" && (
+            <ResultsReview key={state.finished_at ?? "results"} runId={runId} />
+          )}
         </>
       )}
     </section>
