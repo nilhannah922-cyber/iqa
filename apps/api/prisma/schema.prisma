@@ -67,18 +67,21 @@ model test_cases {
 }
 
 model test_runs {
-  id              String             @id @default(cuid())
-  mode            test_run_mode
-  url             String
-  timestamp       DateTime           @default(now())
-  status          String
-  screenshot_path String?
-  page_json_path  String?
-  error           String?
-  results         test_run_results[]
-  checklist_items checklist_items[]
-  edit_requests   edit_requests[]
-  test_cases      test_cases[]
+  id                     String             @id @default(cuid())
+  mode                   test_run_mode
+  url                    String
+  timestamp              DateTime           @default(now())
+  status                 String
+  screenshot_path        String?
+  page_json_path         String?
+  error                  String?
+  // Set when the user approves the test case sheet; cleared by any edit or
+  // regeneration. Step 10 only runs sheets with this set.
+  test_cases_approved_at DateTime?
+  results                test_run_results[]
+  checklist_items        checklist_items[]
+  edit_requests          edit_requests[]
+  test_cases             test_cases[]
 }
 
 model test_run_results {
