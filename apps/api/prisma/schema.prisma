@@ -63,6 +63,9 @@ model test_runs {
   url             String
   timestamp       DateTime           @default(now())
   status          String
+  screenshot_path String?
+  page_json_path  String?
+  error           String?
   results         test_run_results[]
   checklist_items checklist_items[]
   edit_requests   edit_requests[]
@@ -88,14 +91,16 @@ model test_run_results {
 }
 
 model checklist_items {
-  id            String          @id @default(cuid())
-  test_run_id   String
-  description   String
-  approved      Boolean         @default(false)
-  rejected      Boolean         @default(false)
-  added_by_user Boolean         @default(false)
-  source        artifact_source
-  test_run      test_runs       @relation(fields: [test_run_id], references: [id])
+  id                String          @id @default(cuid())
+  test_run_id       String
+  title             String
+  description       String
+  related_selectors Json
+  approved          Boolean         @default(false)
+  rejected          Boolean         @default(false)
+  added_by_user     Boolean         @default(false)
+  source            artifact_source
+  test_run          test_runs       @relation(fields: [test_run_id], references: [id])
 }
 
 model edit_requests {
