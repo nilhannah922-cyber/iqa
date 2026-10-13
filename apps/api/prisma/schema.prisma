@@ -78,6 +78,15 @@ model test_runs {
   // Set when the user approves the test case sheet; cleared by any edit or
   // regeneration. Step 10 only runs sheets with this set.
   test_cases_approved_at DateTime?
+  // Execution (step 10). Status: null (not started) | queued | running |
+  // completed | failed. The sheet cannot be edited while queued or running.
+  execution_status       String?
+  execution_job_id       String?
+  execution_queued_at    DateTime?
+  execution_started_at   DateTime?
+  execution_finished_at  DateTime?
+  execution_current_case String?
+  execution_error        String?
   results                test_run_results[]
   checklist_items        checklist_items[]
   edit_requests          edit_requests[]
@@ -97,6 +106,10 @@ model test_run_results {
   qa_comments           String?
   bug_severity          bug_severity?
   bug_status            bug_status?
+  /// Why the step failed or was not executed (set by the execution engine).
+  execution_error       String?
+  /// How long the step took, in milliseconds (null when not executed).
+  duration_ms           Int?
   test_run              test_runs     @relation(fields: [test_run_id], references: [id])
   test_case             test_cases    @relation(fields: [test_case_number, test_step_number], references: [test_case_number, test_step_number])
 

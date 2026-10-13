@@ -318,3 +318,52 @@ export function discardEditProposal(runId: string, proposalId: string) {
     { method: "POST" },
   );
 }
+
+// ---- Execution (step 10) ----
+
+export type ExecutionStatus =
+  "not_started" | "queued" | "running" | "completed" | "failed";
+
+export interface ExecutionCaseSummary {
+  test_case_number: string;
+  test_scenario: string;
+  steps: number;
+  executed: boolean;
+  passed: number;
+  failed: number;
+  not_executed: number;
+  result: "pass" | "fail" | "not_executed" | null;
+  failure: { step: number; reason: string | null } | null;
+  duration_ms: number;
+  /** Storage key, or null when no screenshot was taken. */
+  screenshot: string | null;
+}
+
+export interface ExecutionState {
+  run_id: string;
+  status: ExecutionStatus;
+  queued_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  error: string | null;
+  progress: {
+    cases_done: number;
+    cases_total: number;
+    current_case: string | null;
+  };
+  cases: ExecutionCaseSummary[];
+}
+
+export function startExecution(runId: string) {
+  return request<ExecutionState>(`/analysis/${runId}/execution`, {
+    method: "POST",
+  });
+}
+
+export function getExecution(runId: string) {
+  return request<ExecutionState>(`/analysis/${runId}/execution`);
+}
+
+export function screenshotUrl(runId: string, caseNumber: string) {
+  return `${API_URL}/analysis/${runId}/screenshots/${encodeURIComponent(caseNumber)}`;
+}

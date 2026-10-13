@@ -31,7 +31,7 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - [ ] 7c. Notes revise the checklist via Claude (diff + confirm)
 - [x] 8. Test case generation: approved checklist to test cases matching the 12-column schema
 - [x] 9a. Review grid: AG Grid, manual edits, approval
-- [ ] 9b. Instruction-based edit with diff + confirm
+- [x] 9b. Instruction-based edit with diff + confirm
 - [ ] 10. Execution engine: BullMQ worker runs approved cases in Playwright, one screenshot per case
 - [ ] 11. Pass/fail confirmation UI: AI proposes, user confirms or overrides
 - [ ] 12. Report view: executed, passed, failed by severity, not executed
@@ -59,4 +59,4 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - Form submissions can only be verified by URL (e.g. that the browser navigated to the form's action), because the response page is not analyzed in v1.
 
 ## Current focus
-Phase 2, step 9b: Instruction-based edit with diff + confirm.
+Phase 2, step 10: Execution engine (BullMQ worker, Playwright, one screenshot per case).

@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { ExecutionService } from '../execution/execution.service';
 import { EditProposalsService } from '../test-cases/edit-proposals.service';
 import {
   CreateEditProposalDto,
@@ -37,6 +38,7 @@ export class AnalysisController {
     private readonly analysis: AnalysisService,
     private readonly testCases: TestCasesService,
     private readonly editProposals: EditProposalsService,
+    private readonly execution: ExecutionService,
   ) {}
 
   /** Analyzes the page and generates its checklist (takes ~20-40s). */
@@ -73,6 +75,23 @@ export class AnalysisController {
   @Get(':id/test-cases')
   listTestCases(@Param('id') id: string) {
     return this.testCases.listForRun(id);
+  }
+
+  /** Queues execution of the approved test case sheet (no Claude calls). */
+  @Post(':id/execution')
+  startExecution(@Param('id') id: string) {
+    return this.execution.start(id);
+  }
+
+  @Get(':id/execution')
+  executionStatus(@Param('id') id: string) {
+    return this.execution.status(id);
+  }
+
+  /** The screenshot of one executed test case (PNG). */
+  @Get(':id/screenshots/:caseNumber')
+  caseScreenshot(@Param('id') id: string, @Param('caseNumber') number: string) {
+    return this.execution.screenshot(id, caseNumber(number));
   }
 
   /** Asks Claude for a diff for one plain-words instruction (~10-30s). */

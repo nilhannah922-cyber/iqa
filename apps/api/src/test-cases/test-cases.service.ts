@@ -17,6 +17,7 @@ import {
   assertApiKeySet,
   pageSelectors,
 } from '../claude/claude-json';
+import { assertSheetEditable } from '../execution/execution-guard';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   StepActionName,
@@ -117,6 +118,7 @@ export class TestCasesService {
       },
     });
     if (!run) throw new NotFoundException(`Analysis run ${runId} not found.`);
+    assertSheetEditable(run);
     if (!run.page_json_path || !run.screenshot_path) {
       throw new ConflictException(
         `Analysis run ${runId} has no page analysis (status: ${run.status}). Analyze the page again.`,
@@ -443,6 +445,7 @@ export class TestCasesService {
       where: { id: runId },
     });
     if (!run) throw new NotFoundException(`Analysis run ${runId} not found.`);
+    assertSheetEditable(run);
     const steps = await this.prisma.test_cases.findMany({
       where: { test_case_number: caseNumber, test_run_id: runId },
       select: {

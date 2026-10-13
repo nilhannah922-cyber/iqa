@@ -72,9 +72,9 @@ export const STEP_ACTIONS = {
   },
   expect_value: {
     selector: 'required',
-    value: 'required',
+    value: 'required_or_empty',
     content: false,
-    note: "Input's current value equals value.",
+    note: 'Input\'s current value equals value. An empty value "" means the field must be empty.',
   },
   expect_checked: {
     selector: 'required',
@@ -104,7 +104,8 @@ export const STEP_ACTIONS = {
   string,
   {
     selector: 'required' | 'optional' | 'none';
-    value: 'required' | 'optional' | 'none';
+    /** required_or_empty: must be given, and "" is a meaningful value. */
+    value: 'required' | 'required_or_empty' | 'optional' | 'none';
     /** Accepts content selectors: all (true), none (false) or only <label> ones. */
     content: boolean | 'label';
     note: string;
@@ -162,7 +163,13 @@ export function validateStepAction(
   }
   const spec = STEP_ACTIONS[action];
   const sel = selector?.trim() ? selector : undefined;
-  const val = value !== undefined && value !== '' ? value : undefined;
+  // Empty strings count as absent, except where "" is a meaningful value.
+  const val =
+    spec.value === 'required_or_empty'
+      ? value
+      : value !== undefined && value !== ''
+        ? value
+        : undefined;
 
   if (spec.selector === 'required' && !sel) {
     return { ok: false, reason: `"${action}" needs a selector` };
@@ -189,6 +196,12 @@ export function validateStepAction(
   }
   if (spec.value === 'required' && val === undefined) {
     return { ok: false, reason: `"${action}" needs a value` };
+  }
+  if (spec.value === 'required_or_empty' && val === undefined) {
+    return {
+      ok: false,
+      reason: `"${action}" needs a value (use "" to check that the field is empty)`,
+    };
   }
   if (spec.value === 'none' && val !== undefined) {
     return { ok: false, reason: `"${action}" does not take a value` };

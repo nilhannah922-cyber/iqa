@@ -13,6 +13,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import EditRequestPanel from "./edit-request-panel";
+import ExecutionPanel from "./execution-panel";
 import {
   StepAction,
   TestCaseRow,
@@ -466,6 +467,8 @@ export default function TestCaseSheet({
           </>
         )}
       </aside>
+
+      <ExecutionPanel runId={runId} approved={!!approvedAt} />
     </section>
   );
 }

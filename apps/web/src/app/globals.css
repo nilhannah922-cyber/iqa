@@ -688,3 +688,80 @@ button.danger {
     gap: 2px;
   }
 }
+
+/* ---- Execution (step 10) ---- */
+.execution {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  display: grid;
+  gap: 10px;
+}
+
+.execution-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.execution-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.execution .status progress {
+  flex: 1;
+  min-width: 120px;
+}
+
+.execution-totals {
+  margin: 0;
+}
+
+.execution-cases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.execution-cases li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.exec-scenario {
+  flex: 1 1 260px;
+}
+
+.exec-reason {
+  flex-basis: 100%;
+  color: var(--danger-text);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.pill-pass {
+  background: var(--ok-bg);
+  color: var(--ok-text);
+}
+
+.pill-fail {
+  background: var(--del-bg);
+  color: var(--del-text);
+}
+
+.pill-not_executed,
+.pill-none {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
