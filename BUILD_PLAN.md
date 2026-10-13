@@ -54,5 +54,8 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - [ ] 22. Export reports (PDF and Excel)
 - [ ] 23. Decide hosting and deploy
 
+## Known limitations (v1)
+- Form submissions can only be verified by URL (e.g. that the browser navigated to the form's action), because the response page is not analyzed in v1.
+
 ## Current focus
 Phase 2, step 8: Test case generation.

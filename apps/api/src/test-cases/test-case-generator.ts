@@ -17,13 +17,14 @@ import {
   STEP_ACTIONS,
   STEP_ACTION_NAMES,
   StepAction,
+  StepActionName,
   isExpectAction,
   validateStepAction,
 } from './step-actions';
 
 const MAX_TOKENS = 32_000;
 /** Review limits: per approved checklist item and per run. */
-export const MAX_CASES_PER_ITEM = 4;
+export const MAX_CASES_PER_ITEM = 3;
 export const MAX_CASES_TOTAL = 30;
 const MAX_STEPS_PER_CASE = 15;
 
@@ -108,10 +109,17 @@ function schemaFor(itemIds: string[]) {
   };
 }
 
+function selectorKinds(spec: (typeof STEP_ACTIONS)[StepActionName]): string {
+  if (spec.selector === 'none') return '';
+  if (spec.content === true) return ' (interactive or content)';
+  if (spec.content === 'label') return ' (interactive, or a content label)';
+  return ' (interactive only)';
+}
+
 const ACTION_REFERENCE = Object.entries(STEP_ACTIONS)
   .map(
     ([name, spec]) =>
-      `- ${name}: selector ${spec.selector}${spec.content ? ' (interactive or content)' : spec.selector === 'none' ? '' : ' (interactive only)'}, value ${spec.value}. ${spec.note}`,
+      `- ${name}: selector ${spec.selector}${selectorKinds(spec)}, value ${spec.value}. ${spec.note}`,
   )
   .join('\n');
 
@@ -121,7 +129,7 @@ You receive a screenshot of the page, page.json and the approved checklist items
 Write test cases for the approved checklist items only. Each test case is a sequence of steps that an automated Playwright runner will execute exactly as written, with no AI at run time.
 
 Coverage:
-- For each checklist item, write the happy path plus the obvious negative or edge cases. Use 1 to ${MAX_CASES_PER_ITEM} cases per item; prefer fewer, meaningful cases. Keep the whole set small enough for a person to review (at most ${MAX_CASES_TOTAL} cases).
+- For each checklist item, write the happy path plus the obvious negative or edge cases. Use 1 to ${MAX_CASES_PER_ITEM} cases per item (never more); prefer fewer, sharper cases over many similar ones. Keep the whole set small enough for a person to review (at most ${MAX_CASES_TOTAL} cases).
 - For a form, include at least one negative case (invalid or empty input) when the checklist item is about input, validation or submission.
 - Every case must contain at least one expect_* step that verifies what its checklist item is about. A case that only performs actions is not a test.
 - Do not repeat a check that another case in this set already covers; give each case a distinct purpose.
@@ -140,15 +148,18 @@ Each step:
 - action, selector, value: the machine-readable step. Use "" for selector or value when the action does not take one.
   Allowed actions:
 ${ACTION_REFERENCE}
-- Use only selectors that appear in page.json, copied exactly. Prefer the checklist item's related_selectors. Content selectors are only for expect_visible, expect_text and wait.
+- Use only selectors that appear in page.json, copied exactly. Prefer the checklist item's related_selectors. Content selectors are only for expect_visible, expect_text and wait; click also accepts a content selector whose tag is "label".
 - Do not add fixed pauses: expect_* steps retry until they pass or time out. Use wait only to wait for a specific element to appear.
+- For focus and keyboard checks, use expect_focused on the element that should (or should not) have focus. Never infer which field has focus by typing text and checking where it landed.
 - Verify outcomes with expect_* steps. Only assert things you can observe on this page or in its URL/title; do not assume server responses, pages or messages you cannot see.
 - Do not include results, bug ids, severities or screenshots.`;
 
 /**
- * Validates Claude's reply. Structural problems throw. Invalid steps are
- * dropped and reported; a case left with no steps, or with no expect_* step,
- * is dropped and reported.
+ * Validates Claude's reply. Structural problems throw. An invalid action step
+ * (anything that is not expect_*) drops its whole case, because the remaining
+ * steps would test something else. Invalid expect_* steps are dropped one by
+ * one; a case left with no expect_* step is dropped. Cases over the per-item
+ * or total cap are dropped. Every drop is reported as a warning.
  */
 export function validateGeneratedCases(
   raw: unknown,
@@ -203,43 +214,64 @@ export function validateGeneratedCases(
       return;
     }
 
-    const steps: GeneratedStep[] = [];
     const rawSteps = Array.isArray(c.steps) ? (c.steps as unknown[]) : [];
-    rawSteps.forEach((rawStep, si) => {
-      const where = `${name} step ${si + 1}`;
-      if (typeof rawStep !== 'object' || rawStep === null) {
-        warnings.push(`${where}: dropped, not an object.`);
-        return;
-      }
-      const s = rawStep as Record<string, unknown>;
+    if (rawSteps.length > MAX_STEPS_PER_CASE) {
+      warnings.push(
+        `${name}: dropped, ${rawSteps.length} steps (more than ${MAX_STEPS_PER_CASE}).`,
+      );
+      return;
+    }
+
+    const steps: GeneratedStep[] = [];
+    const stepWarnings: string[] = [];
+    let actionProblem: string | undefined;
+    for (const [si, rawStep] of rawSteps.entries()) {
+      const where = `step ${si + 1}`;
+      const s =
+        typeof rawStep === 'object' && rawStep !== null
+          ? (rawStep as Record<string, unknown>)
+          : {};
+      // Anything not clearly an expect_* step counts as an action step.
+      const isExpect =
+        typeof s.action === 'string' && s.action.startsWith('expect_');
       const details = text(s.step_details);
       const expected = text(s.expected_output);
-      if (!details || !expected) {
-        warnings.push(
-          `${where}: dropped, missing step details or expected output.`,
+      let problem: string | undefined;
+      let step: StepAction | undefined;
+      if (typeof rawStep !== 'object' || rawStep === null) {
+        problem = 'not an object';
+      } else if (!details || !expected) {
+        problem = 'missing step details or expected output';
+      } else {
+        const check = validateStepAction(
+          { action: s.action, selector: s.selector, value: s.value },
+          known,
         );
-        return;
+        if (check.ok) step = check.step;
+        else problem = check.reason;
       }
-      const check = validateStepAction(
-        { action: s.action, selector: s.selector, value: s.value },
-        known,
-      );
-      if (!check.ok) {
-        warnings.push(`${where}: dropped, ${check.reason}.`);
-        return;
-      }
-      if (steps.length >= MAX_STEPS_PER_CASE) {
-        warnings.push(`${where}: dropped, over ${MAX_STEPS_PER_CASE} steps.`);
-        return;
+
+      if (problem !== undefined) {
+        if (!isExpect) {
+          actionProblem = `${where} (${String(s.action)}) is invalid: ${problem}`;
+          break;
+        }
+        stepWarnings.push(`${name} ${where}: dropped, ${problem}.`);
+        continue;
       }
       steps.push({
         step_details: details,
         expected_output: expected,
         test_data: text(s.test_data) || null,
-        step_action: check.step,
+        step_action: step!,
       });
-    });
+    }
 
+    if (actionProblem !== undefined) {
+      warnings.push(`${name}: dropped, action ${actionProblem}.`);
+      return;
+    }
+    warnings.push(...stepWarnings);
     if (steps.length === 0) {
       warnings.push(`${name}: dropped, no valid steps left.`);
       return;

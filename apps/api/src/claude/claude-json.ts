@@ -63,15 +63,21 @@ export function assertApiKeySet(): void {
 export interface PageSelectors {
   /** Interactive elements: forms, inputs, buttons, links, ... */
   interactive: Set<string>;
-  /** Visible text blocks (headings, labels, ...): assertions only. */
+  /** Visible text blocks (headings, labels, ...): mostly assertions only. */
   content: Set<string>;
+  /** The content selectors whose tag is "label" (clickable). */
+  labels: Set<string>;
 }
 
 export function pageSelectors(analysis: PageAnalysis): PageSelectors {
   const groups = Object.values(analysis.elements) as ElementInfo[][];
+  const content = analysis.content ?? [];
   return {
     interactive: new Set(groups.flat().map((el) => el.selector)),
-    content: new Set((analysis.content ?? []).map((c) => c.selector)),
+    content: new Set(content.map((c) => c.selector)),
+    labels: new Set(
+      content.filter((c) => c.tag === 'label').map((c) => c.selector),
+    ),
   };
 }
 

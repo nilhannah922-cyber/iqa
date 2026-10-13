@@ -5,7 +5,8 @@
  *
  * selector: a CSS selector from the run's page.json. Interactive-element
  *           selectors work for every action that takes one; content selectors
- *           (headings, labels, text blocks) only where content is true.
+ *           (headings, labels, text blocks) only where content is true, or
+ *           only <label> content where content is 'label'.
  * value:    action input; always a string (see each action's note).
  */
 export const STEP_ACTIONS = {
@@ -18,8 +19,8 @@ export const STEP_ACTIONS = {
   click: {
     selector: 'required',
     value: 'none',
-    content: false,
-    note: 'Click the element.',
+    content: 'label',
+    note: 'Click the element. A <label> from the content list may be clicked to tick or focus its control.',
   },
   fill: {
     selector: 'required',
@@ -81,6 +82,12 @@ export const STEP_ACTIONS = {
     content: false,
     note: 'value "true" = checked, "false" = not checked.',
   },
+  expect_focused: {
+    selector: 'required',
+    value: 'required',
+    content: false,
+    note: 'value "true" = element has keyboard focus, "false" = it does not. Use this for focus and keyboard checks.',
+  },
   expect_url: {
     selector: 'none',
     value: 'required',
@@ -98,8 +105,8 @@ export const STEP_ACTIONS = {
   {
     selector: 'required' | 'optional' | 'none';
     value: 'required' | 'optional' | 'none';
-    /** Accepts content (non-interactive text) selectors. */
-    content: boolean;
+    /** Accepts content selectors: all (true), none (false) or only <label> ones. */
+    content: boolean | 'label';
     note: string;
   }
 >;
@@ -118,6 +125,8 @@ export interface StepAction {
 export interface AllowedSelectors {
   interactive: Set<string>;
   content: Set<string>;
+  /** The content selectors whose tag is "label". */
+  labels: Set<string>;
 }
 
 export function isExpectAction(name: StepActionName): boolean {
@@ -165,10 +174,16 @@ export function validateStepAction(
     if (!selectors.content.has(sel)) {
       return { ok: false, reason: `selector not in page.json: ${sel}` };
     }
-    if (!spec.content) {
+    const allowed =
+      spec.content === true ||
+      (spec.content === 'label' && selectors.labels.has(sel));
+    if (!allowed) {
       return {
         ok: false,
-        reason: `"${action}" needs an interactive element, not a text block: ${sel}`,
+        reason:
+          spec.content === 'label'
+            ? `"${action}" accepts an interactive element or a label, not this text block: ${sel}`
+            : `"${action}" needs an interactive element, not a text block: ${sel}`,
       };
     }
   }
@@ -179,7 +194,9 @@ export function validateStepAction(
     return { ok: false, reason: `"${action}" does not take a value` };
   }
   if (
-    (action === 'expect_visible' || action === 'expect_checked') &&
+    (action === 'expect_visible' ||
+      action === 'expect_checked' ||
+      action === 'expect_focused') &&
     val !== 'true' &&
     val !== 'false'
   ) {
