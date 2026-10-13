@@ -43,10 +43,12 @@ function friendlyMessage(status: number, body: ErrorBody | null): string {
       return detail ?? "The request was not valid.";
     case 404:
       return detail ?? "That analysis no longer exists.";
+    case 409:
+      return detail ?? "That change conflicts with the current state.";
     case 422:
       return `We couldn't open that page. ${detail ?? ""}`.trim();
     case 502:
-      return `The AI service couldn't produce a checklist. ${detail ?? ""}`.trim();
+      return `The AI service couldn't complete the request. ${detail ?? ""}`.trim();
     case 503:
       return detail ?? "The API is not configured yet.";
     default:
@@ -74,9 +76,7 @@ async function request<T>(
         `The request took longer than ${timeoutMs / 1000}s and was stopped. Please try again.`,
       );
     }
-    throw new ApiError(
-      `Could not reach the API at ${API_URL}. Is it running?`,
-    );
+    throw new ApiError(`Could not reach the API at ${API_URL}. Is it running?`);
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as ErrorBody | null;
@@ -111,5 +111,116 @@ export function addItem(
   return request<ChecklistItem>(`/analysis/${runId}/items`, {
     method: "POST",
     body: JSON.stringify(item),
+  });
+}
+
+export function getAnalysis(runId: string) {
+  return request<AnalysisRun>(`/analysis/${runId}`);
+}
+
+// ---- Test case sheet (step 9a) ----
+
+/** step_action: the machine-readable step (see the API's STEP_ACTIONS). */
+export interface StepAction {
+  action: string;
+  selector?: string;
+  value?: string;
+}
+
+/** One step row: the 12 sheet columns plus traceability and step_action. */
+export interface TestCaseRow {
+  test_case_number: string;
+  test_page_area: string;
+  test_scenario: string;
+  test_step_number: number;
+  step_details: string;
+  expected_output: string;
+  test_data: string | null;
+  result: "pass" | "fail" | "not_executed";
+  bug_id: string | null;
+  screenshot: string | null;
+  qa_comments: string | null;
+  bug_severity: "minor" | "major" | "critical" | null;
+  bug_status: string | null;
+  checklist_item_id: string | null;
+  source: "scan" | "user_note" | "cross_check" | null;
+  step_action: StepAction | null;
+}
+
+export interface TestCaseSheet {
+  run_id: string;
+  /** ISO time the sheet was approved, or null. */
+  approved_at: string | null;
+  test_cases: TestCaseRow[];
+}
+
+export interface GenerateTestCasesResult extends TestCaseSheet {
+  warnings: string[];
+  replaced: number;
+  usage: { input_tokens: number; output_tokens: number };
+}
+
+/** Fields a reviewer can edit on one step row. */
+export type TestStepEdit = Partial<
+  Pick<
+    TestCaseRow,
+    | "test_page_area"
+    | "test_scenario"
+    | "step_details"
+    | "expected_output"
+    | "test_data"
+    | "qa_comments"
+  >
+> & { step_action?: StepAction };
+
+/** POST .../test-cases waits for Claude; allow up to 3 minutes. */
+const GENERATION_TIMEOUT_MS = 180_000;
+
+const stepPath = (runId: string, caseNumber: string, step?: number) =>
+  `/analysis/${runId}/test-cases/${encodeURIComponent(caseNumber)}` +
+  (step === undefined ? "" : `/steps/${step}`);
+
+export function generateTestCases(runId: string) {
+  return request<GenerateTestCasesResult>(`/analysis/${runId}/test-cases`, {
+    method: "POST",
+    timeoutMs: GENERATION_TIMEOUT_MS,
+  });
+}
+
+export function getTestCases(runId: string) {
+  return request<TestCaseSheet>(`/analysis/${runId}/test-cases`);
+}
+
+export function updateTestStep(
+  runId: string,
+  caseNumber: string,
+  step: number,
+  edit: TestStepEdit,
+) {
+  return request<TestCaseSheet>(stepPath(runId, caseNumber, step), {
+    method: "PATCH",
+    body: JSON.stringify(edit),
+  });
+}
+
+export function deleteTestStep(
+  runId: string,
+  caseNumber: string,
+  step: number,
+) {
+  return request<TestCaseSheet>(stepPath(runId, caseNumber, step), {
+    method: "DELETE",
+  });
+}
+
+export function deleteTestCase(runId: string, caseNumber: string) {
+  return request<TestCaseSheet>(stepPath(runId, caseNumber), {
+    method: "DELETE",
+  });
+}
+
+export function approveTestCases(runId: string) {
+  return request<TestCaseSheet>(`/analysis/${runId}/test-cases/approve`, {
+    method: "POST",
   });
 }

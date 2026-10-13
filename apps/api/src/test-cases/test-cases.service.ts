@@ -12,8 +12,26 @@ import { Prisma, artifact_source as ArtifactSource } from '@prisma/client';
 import type { PageAnalysis } from '../analysis/analyze-page';
 import type { StorageProvider } from '../analysis/storage';
 import { STORAGE } from '../analysis/storage.token';
-import { ClaudeError, assertApiKeySet } from '../claude/claude-json';
+import {
+  ClaudeError,
+  assertApiKeySet,
+  pageSelectors,
+} from '../claude/claude-json';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  StepActionName,
+  isExpectAction,
+  validateStepAction,
+} from './step-actions';
+
+/** The action name stored in a step_action JSON value, if any. */
+function stepActionName(value: Prisma.JsonValue): StepActionName {
+  const action =
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? value.action
+      : undefined;
+  return (typeof action === 'string' ? action : '') as StepActionName;
+}
 import {
   ApprovedItem,
   GeneratedCase,
@@ -57,8 +75,28 @@ export type TestCaseRow = Prisma.test_casesGetPayload<{
   select: typeof rowSelect;
 }>;
 
+/** The test case sheet of a run plus its approval state. */
+export interface TestCaseSheet {
+  run_id: string;
+  /** When the user approved the sheet; null = not approved. */
+  approved_at: Date | null;
+  test_cases: TestCaseRow[];
+}
+
+/** Fields a reviewer may change on one step row (see UpdateTestStepDto). */
+export interface TestStepEdit {
+  test_page_area?: string;
+  test_scenario?: string;
+  step_details?: string;
+  expected_output?: string;
+  test_data?: string | null;
+  qa_comments?: string | null;
+  step_action?: Record<string, unknown>;
+}
+
 export interface GenerateTestCasesResult {
   run_id: string;
+  approved_at: null;
   model: string;
   usage: { input_tokens: number; output_tokens: number };
   /** Previously generated, never-executed cases deleted for this run. */
@@ -183,6 +221,7 @@ export class TestCasesService {
 
     return {
       run_id: runId,
+      approved_at: null,
       model: generated.model,
       usage: {
         input_tokens: generated.usage.input_tokens,
@@ -195,15 +234,253 @@ export class TestCasesService {
     };
   }
 
-  async listForRun(
-    runId: string,
-  ): Promise<{ run_id: string; test_cases: TestCaseRow[] }> {
+  async listForRun(runId: string): Promise<TestCaseSheet> {
     const run = await this.prisma.test_runs.findUnique({
       where: { id: runId },
-      select: { id: true },
+      select: { test_cases_approved_at: true },
     });
     if (!run) throw new NotFoundException(`Analysis run ${runId} not found.`);
-    return { run_id: runId, test_cases: await this.rowsForRun(runId) };
+    return {
+      run_id: runId,
+      approved_at: run.test_cases_approved_at,
+      test_cases: await this.rowsForRun(runId),
+    };
+  }
+
+  /**
+   * Edits one step row. Page area and scenario belong to the whole case and
+   * are written to every row of it. Clears the sheet's approval.
+   */
+  async updateStep(
+    runId: string,
+    caseNumber: string,
+    stepNumber: number,
+    edit: TestStepEdit,
+  ): Promise<TestCaseSheet> {
+    const required = [
+      'test_page_area',
+      'test_scenario',
+      'step_details',
+      'expected_output',
+    ] as const;
+    const caseData: Prisma.test_casesUpdateManyMutationInput = {};
+    const stepData: Prisma.test_casesUpdateInput = {};
+    for (const field of required) {
+      const value = edit[field];
+      if (value === undefined) continue;
+      if (!value.trim()) {
+        throw new BadRequestException(`${field} cannot be empty.`);
+      }
+      if (field === 'test_page_area' || field === 'test_scenario') {
+        caseData[field] = value.trim();
+      } else {
+        stepData[field] = value.trim();
+      }
+    }
+    for (const field of ['test_data', 'qa_comments'] as const) {
+      const value = edit[field];
+      if (value !== undefined) stepData[field] = value?.trim() || null;
+    }
+    if (
+      Object.keys(caseData).length === 0 &&
+      Object.keys(stepData).length === 0 &&
+      edit.step_action === undefined
+    ) {
+      throw new BadRequestException('Nothing to update.');
+    }
+
+    const { run, steps } = await this.editableCase(runId, caseNumber);
+    const target = steps.find((s) => s.test_step_number === stepNumber);
+    if (!target) {
+      throw new NotFoundException(
+        `Step ${stepNumber} not found in test case ${caseNumber}.`,
+      );
+    }
+
+    if (edit.step_action !== undefined) {
+      const selectors = await this.selectorsForRun(run);
+      const check = validateStepAction(edit.step_action, selectors);
+      if (!check.ok) {
+        throw new BadRequestException(`Invalid step action: ${check.reason}.`);
+      }
+      const hasExpectLeft =
+        isExpectAction(check.step.action) ||
+        steps.some(
+          (s) =>
+            s.test_step_number !== stepNumber &&
+            isExpectAction(stepActionName(s.step_action)),
+        );
+      if (!hasExpectLeft) {
+        throw new BadRequestException(
+          `Test case ${caseNumber} must keep at least one expect_* step; this change would remove its last one.`,
+        );
+      }
+      stepData.step_action = { ...check.step };
+    }
+
+    await this.prisma.$transaction([
+      ...(Object.keys(caseData).length
+        ? [
+            this.prisma.test_cases.updateMany({
+              where: { test_case_number: caseNumber, test_run_id: runId },
+              data: caseData,
+            }),
+          ]
+        : []),
+      ...(Object.keys(stepData).length
+        ? [
+            this.prisma.test_cases.update({
+              where: {
+                test_case_number_test_step_number: {
+                  test_case_number: caseNumber,
+                  test_step_number: stepNumber,
+                },
+              },
+              data: stepData,
+            }),
+          ]
+        : []),
+      this.clearApproval(runId),
+    ]);
+    return this.listForRun(runId);
+  }
+
+  /** Deletes one step and renumbers the rest. Clears the sheet's approval. */
+  async deleteStep(
+    runId: string,
+    caseNumber: string,
+    stepNumber: number,
+  ): Promise<TestCaseSheet> {
+    const { steps } = await this.editableCase(runId, caseNumber);
+    if (!steps.some((s) => s.test_step_number === stepNumber)) {
+      throw new NotFoundException(
+        `Step ${stepNumber} not found in test case ${caseNumber}.`,
+      );
+    }
+    const rest = steps.filter((s) => s.test_step_number !== stepNumber);
+    if (rest.length === 0) {
+      throw new BadRequestException(
+        `Step ${stepNumber} is the only step of ${caseNumber}. Delete the whole test case instead.`,
+      );
+    }
+    if (!rest.some((s) => isExpectAction(stepActionName(s.step_action)))) {
+      throw new BadRequestException(
+        `Deleting step ${stepNumber} would leave ${caseNumber} with no expect_* step. Delete the whole test case, or add another check first.`,
+      );
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.test_cases.delete({
+        where: {
+          test_case_number_test_step_number: {
+            test_case_number: caseNumber,
+            test_step_number: stepNumber,
+          },
+        },
+      }),
+      // Ascending order keeps every target number free when it is written.
+      ...rest
+        .filter((s) => s.test_step_number > stepNumber)
+        .map((s) =>
+          this.prisma.test_cases.update({
+            where: {
+              test_case_number_test_step_number: {
+                test_case_number: caseNumber,
+                test_step_number: s.test_step_number,
+              },
+            },
+            data: { test_step_number: s.test_step_number - 1 },
+          }),
+        ),
+      this.clearApproval(runId),
+    ]);
+    return this.listForRun(runId);
+  }
+
+  /** Deletes a whole test case. Clears the sheet's approval. */
+  async deleteCase(runId: string, caseNumber: string): Promise<TestCaseSheet> {
+    await this.editableCase(runId, caseNumber);
+    await this.prisma.$transaction([
+      this.prisma.test_cases.deleteMany({
+        where: { test_case_number: caseNumber, test_run_id: runId },
+      }),
+      this.clearApproval(runId),
+    ]);
+    return this.listForRun(runId);
+  }
+
+  /** Records that the user approved the run's test case sheet. */
+  async approve(runId: string): Promise<TestCaseSheet> {
+    const sheet = await this.listForRun(runId);
+    if (sheet.test_cases.length === 0) {
+      throw new BadRequestException(
+        'There are no test cases to approve. Generate test cases first.',
+      );
+    }
+    await this.prisma.test_runs.update({
+      where: { id: runId },
+      data: { test_cases_approved_at: new Date() },
+    });
+    return this.listForRun(runId);
+  }
+
+  private clearApproval(runId: string) {
+    return this.prisma.test_runs.update({
+      where: { id: runId },
+      data: { test_cases_approved_at: null },
+    });
+  }
+
+  /**
+   * Loads a case of the run for editing: 404 if the run or case is unknown,
+   * 409 if any of its steps already has execution results.
+   */
+  private async editableCase(runId: string, caseNumber: string) {
+    const run = await this.prisma.test_runs.findUnique({
+      where: { id: runId },
+    });
+    if (!run) throw new NotFoundException(`Analysis run ${runId} not found.`);
+    const steps = await this.prisma.test_cases.findMany({
+      where: { test_case_number: caseNumber, test_run_id: runId },
+      select: {
+        test_step_number: true,
+        step_action: true,
+        _count: { select: { run_results: true } },
+      },
+      orderBy: { test_step_number: 'asc' },
+    });
+    if (steps.length === 0) {
+      throw new NotFoundException(
+        `Test case ${caseNumber} not found in run ${runId}.`,
+      );
+    }
+    if (steps.some((s) => s._count.run_results > 0)) {
+      throw new ConflictException(
+        `Test case ${caseNumber} has already been executed and can no longer be edited.`,
+      );
+    }
+    return { run, steps };
+  }
+
+  private async selectorsForRun(run: {
+    id: string;
+    page_json_path: string | null;
+  }) {
+    if (!run.page_json_path) {
+      throw new ConflictException(
+        `Analysis run ${run.id} has no page analysis, so step actions cannot be checked.`,
+      );
+    }
+    try {
+      const analysis = JSON.parse(
+        (await this.storage.read(run.page_json_path)).toString('utf8'),
+      ) as PageAnalysis;
+      return pageSelectors(analysis);
+    } catch {
+      throw new ConflictException(
+        `The stored page analysis for run ${run.id} could not be read.`,
+      );
+    }
   }
 
   /**
@@ -315,6 +592,11 @@ export class TestCasesService {
         }));
       });
       await tx.test_cases.createMany({ data: rows });
+      // A regenerated sheet must be reviewed and approved again.
+      await tx.test_runs.update({
+        where: { id: runId },
+        data: { test_cases_approved_at: null },
+      });
       return { replaced: removable.length, kept: executed.size };
     });
   }
