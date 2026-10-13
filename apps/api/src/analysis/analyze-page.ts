@@ -40,6 +40,18 @@ export interface PageElements {
   modals: ElementInfo[];
 }
 
+/** Visible, non-interactive text the tests can assert on (headings, labels, ...). */
+export interface ContentInfo {
+  selector: string;
+  /** Trimmed text; cut at a word boundary (no ellipsis) when longer than 200 chars. */
+  text: string;
+  tag: string;
+  truncated?: boolean;
+}
+
+/** Most content entries kept per page, headings first. */
+export const MAX_CONTENT_ITEMS = 40;
+
 export interface PageAnalysis {
   url: string;
   final_url: string;
@@ -49,6 +61,8 @@ export interface PageAnalysis {
   screenshot: string;
   counts: Record<keyof PageElements, number>;
   elements: PageElements;
+  /** Absent in page.json files written before content was collected. */
+  content?: ContentInfo[];
 }
 
 export interface AnalysisResult {
@@ -111,7 +125,10 @@ function describeNavigationError(err: unknown, url: string): AnalysisError {
 /**
  * Runs inside the browser. Must be self-contained: Playwright serializes it.
  */
-function extractElements(): PageElements {
+function extractPage(maxContent: number): {
+  elements: PageElements;
+  content: ContentInfo[];
+} {
   const cssEscape = (value: string) => CSS.escape(value);
 
   const isUnique = (selector: string) => {
@@ -280,7 +297,66 @@ function extractElements(): PageElements {
   const buttonTypes = ['button', 'submit', 'reset', 'image'];
   const nonTextInputs = [...buttonTypes, 'checkbox', 'radio', 'hidden'];
 
-  return {
+  // Visible text worth asserting on, collected by priority group (headings
+  // first) so the cap never cuts headings. Identical texts are kept once (the
+  // higher-priority match wins), and blocks whose text is just their links or
+  // buttons are skipped (those are already listed as elements).
+  const CONTENT_GROUPS = [
+    'h1, h2, h3',
+    'legend, caption, figcaption',
+    'label',
+    'p, li, dt, dd, blockquote',
+  ];
+  const CONTENT_TEXT_MAX = 200;
+  const contentText = (el: Element): { text: string; truncated: boolean } => {
+    const text = ((el as HTMLElement).innerText ?? el.textContent ?? '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (text.length <= CONTENT_TEXT_MAX) return { text, truncated: false };
+    const cut = text.lastIndexOf(' ', CONTENT_TEXT_MAX);
+    return {
+      text: text.slice(0, cut > 80 ? cut : CONTENT_TEXT_MAX),
+      truncated: true,
+    };
+  };
+  const isOnlyControls = (el: Element) => {
+    const controls = el.querySelectorAll(
+      'a, button, input[type="submit"], input[type="button"]',
+    );
+    const own = (el as HTMLElement).innerText.replace(/\s+/g, ' ').trim();
+    const inner = Array.from(controls)
+      .map((c) =>
+        ((c as HTMLInputElement).value && c.tagName === 'INPUT'
+          ? (c as HTMLInputElement).value
+          : (c as HTMLElement).innerText
+        )
+          .replace(/\s+/g, ' ')
+          .trim(),
+      )
+      .join(' ');
+    return controls.length > 0 && inner === own;
+  };
+  const seenText = new Set<string>();
+  const content: ContentInfo[] = [];
+  collect: for (const group of CONTENT_GROUPS) {
+    for (const el of all(group)) {
+      if (content.length >= maxContent) break collect;
+      if (!isVisible(el)) continue;
+      const { text, truncated } = contentText(el);
+      if (text.length < 2 || seenText.has(text) || isOnlyControls(el)) {
+        continue;
+      }
+      seenText.add(text);
+      content.push({
+        selector: stableSelector(el),
+        text,
+        tag: el.tagName.toLowerCase(),
+        ...(truncated && { truncated }),
+      });
+    }
+  }
+
+  const elements: PageElements = {
     forms: all('form').map((el) => ({
       ...base(el),
       name: el.getAttribute('name'),
@@ -331,6 +407,7 @@ function extractElements(): PageElements {
       'dialog, [role="dialog"], [role="alertdialog"], [aria-modal="true"]',
     ).map(base),
   };
+  return { elements, content };
 }
 
 export async function analyzePage(
@@ -366,7 +443,10 @@ export async function analyzePage(
       console.warn(`Warning: ${url} responded with HTTP ${status}.`);
     }
 
-    const elements = await page.evaluate(extractElements);
+    const { elements, content } = await page.evaluate(
+      extractPage,
+      MAX_CONTENT_ITEMS,
+    );
     const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
 
     const analysis: PageAnalysis = {
@@ -383,6 +463,7 @@ export async function analyzePage(
         ]),
       ) as PageAnalysis['counts'],
       elements,
+      content,
     };
 
     const screenshotKey = await storage.save(`${folder}/page.png`, screenshot);
@@ -410,6 +491,7 @@ async function main() {
         .map(([k, v]) => `${k}=${v}`)
         .join(', '),
     );
+    console.log(`Content: ${analysis.content?.length ?? 0} text blocks`);
     console.log(`Screenshot: ${storage.resolve(screenshotKey)}`);
     console.log(`page.json:  ${storage.resolve(pageJsonKey)}`);
   } catch (err) {

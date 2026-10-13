@@ -59,10 +59,32 @@ export function assertApiKeySet(): void {
   }
 }
 
-/** Every selector listed in page.json. */
-export function allSelectors(analysis: PageAnalysis): Set<string> {
+/** Selectors in page.json, split by kind. Old files have no content list. */
+export interface PageSelectors {
+  /** Interactive elements: forms, inputs, buttons, links, ... */
+  interactive: Set<string>;
+  /** Visible text blocks (headings, labels, ...): mostly assertions only. */
+  content: Set<string>;
+  /** The content selectors whose tag is "label" (clickable). */
+  labels: Set<string>;
+}
+
+export function pageSelectors(analysis: PageAnalysis): PageSelectors {
   const groups = Object.values(analysis.elements) as ElementInfo[][];
-  return new Set(groups.flat().map((el) => el.selector));
+  const content = analysis.content ?? [];
+  return {
+    interactive: new Set(groups.flat().map((el) => el.selector)),
+    content: new Set(content.map((c) => c.selector)),
+    labels: new Set(
+      content.filter((c) => c.tag === 'label').map((c) => c.selector),
+    ),
+  };
+}
+
+/** Every selector listed in page.json, interactive and content. */
+export function allSelectors(analysis: PageAnalysis): Set<string> {
+  const { interactive, content } = pageSelectors(analysis);
+  return new Set([...interactive, ...content]);
 }
 
 function pngSize(png: Buffer): { width: number; height: number } | null {
