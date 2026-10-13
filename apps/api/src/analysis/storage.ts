@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve, sep } from 'node:path';
 
 /**
@@ -10,6 +10,8 @@ import { dirname, resolve, sep } from 'node:path';
 export interface StorageProvider {
   /** Saves data under the key and returns the key. */
   save(key: string, data: Buffer | string): Promise<string>;
+  /** Reads the file stored under the key. */
+  read(key: string): Promise<Buffer>;
   /** Resolves a key to where the file can be read (local path or URL). */
   resolve(key: string): string;
 }
@@ -27,6 +29,10 @@ export class LocalDiskStorage implements StorageProvider {
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, data);
     return key;
+  }
+
+  read(key: string): Promise<Buffer> {
+    return readFile(this.resolve(key));
   }
 
   resolve(key: string): string {
