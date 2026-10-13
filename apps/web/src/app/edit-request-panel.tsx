@@ -93,8 +93,9 @@ function CaseCard({ c }: { c: CaseDiff }) {
           {c.test_page_area} · {c.test_scenario}
         </span>
       </div>
+      {/* One reason per case: operations on the same case usually repeat it. */}
       {c.reasons.length > 0 && (
-        <p className="muted small diff-reason">{c.reasons.join(" ")}</p>
+        <p className="muted small diff-reason">{c.reasons[0]}</p>
       )}
       {c.fields.map((f) => (
         <Change key={f.field} change={f} />
