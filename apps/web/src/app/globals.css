@@ -951,3 +951,238 @@ button.choice.selected {
   color: var(--accent);
   font-weight: 600;
 }
+
+/* ---- Full Check report (step 12) ---- */
+.report-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.report-view {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.report-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.report-header h2 {
+  margin: 0;
+}
+
+.report-header p {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.report-embed {
+  font-size: 0.9rem;
+}
+
+a.button-link {
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.report-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.report-card {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.report-card-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.report-card-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.tone-pass {
+  background: var(--ok-bg);
+  color: var(--ok-text);
+}
+
+.tone-fail {
+  background: var(--del-bg);
+  color: var(--del-text);
+}
+
+.tone-critical {
+  background: #8b0000;
+  color: #fff;
+}
+
+.tone-major {
+  background: #f4b183;
+  color: #5a2700;
+}
+
+.tone-minor {
+  background: #ffeb9c;
+  color: #6b5800;
+}
+
+.tone-none,
+.tone-warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.report-card[class*="tone-"] .report-card-label {
+  color: inherit;
+}
+
+.report-view h3 {
+  margin: 8px 0 0;
+  font-size: 1rem;
+}
+
+.report-table-wrap {
+  overflow-x: auto;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.report-table th,
+.report-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.report-table th {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.report-table td .exec-reason {
+  display: block;
+}
+
+.report-thumb {
+  width: 120px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.sev {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.sev-critical {
+  background: #8b0000;
+  color: #fff;
+}
+
+.sev-major {
+  background: #f4b183;
+  color: #5a2700;
+}
+
+.sev-minor {
+  background: #ffeb9c;
+  color: #6b5800;
+}
+
+/* Print / save as PDF: only the report, on white, without controls. */
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  /* Remove everything that is neither the report, inside it, nor one of
+     its ancestors, so hidden content takes no space (no blank pages). */
+  body *:not(:has(.report-view)):not(.report-view):not(.report-view *) {
+    display: none !important;
+  }
+
+  main,
+  .container,
+  .wide,
+  .sheet,
+  .execution {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    max-width: none !important;
+    background: #fff !important;
+  }
+
+  .report-view {
+    border: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  .no-print,
+  .report-view .no-print {
+    display: none !important;
+  }
+
+  .report-card,
+  .report-table tr,
+  .report-thumb {
+    break-inside: avoid;
+  }
+
+  .report-table-wrap {
+    overflow: visible;
+  }
+
+  .report-view a {
+    color: #000;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

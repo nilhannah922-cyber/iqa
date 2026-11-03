@@ -8,9 +8,11 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ExecutionService } from '../execution/execution.service';
 import { ConfirmResultDto } from '../results/results.dto';
+import { ReportService } from '../report/report.service';
 import { ResultsService } from '../results/results.service';
 import { EditProposalsService } from '../test-cases/edit-proposals.service';
 import {
@@ -42,6 +44,7 @@ export class AnalysisController {
     private readonly editProposals: EditProposalsService,
     private readonly execution: ExecutionService,
     private readonly results: ResultsService,
+    private readonly reports: ReportService,
   ) {}
 
   /** Analyzes the page and generates its checklist (takes ~20-40s). */
@@ -89,6 +92,18 @@ export class AnalysisController {
   @Get(':id/execution')
   executionStatus(@Param('id') id: string) {
     return this.execution.status(id);
+  }
+
+  /** Full Check report as JSON (final results = confirmed results). */
+  @Get(':id/report')
+  report(@Param('id') id: string) {
+    return this.reports.report(id);
+  }
+
+  /** Full Check report as an Excel file; ?embed=true adds screenshots. */
+  @Get(':id/report.xlsx')
+  reportXlsx(@Param('id') id: string, @Query('embed') embed?: string) {
+    return this.reports.xlsx(id, embed === 'true' || embed === '1');
   }
 
   /** Deletes results and screenshots; the sheet becomes editable again. */
