@@ -393,6 +393,8 @@ export interface ResultCase {
   qa_comments: string | null;
   screenshot: string | null;
   needs_attention: boolean;
+  /** Claude's reason starts with "Test case problem:". */
+  test_case_problem: boolean;
 }
 
 export interface ResultsSheet {
@@ -462,4 +464,59 @@ export function discardExecution(runId: string) {
   return request<ExecutionState>(`/analysis/${runId}/execution/discard`, {
     method: "POST",
   });
+}
+
+// ---- Full Check report (step 12) ----
+
+export interface ReportSummary {
+  total: number;
+  executed: number;
+  passed: number;
+  failed: number;
+  failed_by_severity: Record<Severity, number>;
+  not_executed: number;
+  not_run: number;
+  awaiting_confirmation: number;
+  test_case_problems: number;
+  fully_reviewed: boolean;
+}
+
+export interface ReportFailedCase {
+  test_case_number: string;
+  test_page_area: string;
+  test_scenario: string;
+  bug_id: string | null;
+  bug_severity: Severity | null;
+  bug_status: string | null;
+  qa_comments: string | null;
+  test_case_problem: boolean;
+  screenshot: string | null;
+  screenshot_url: string | null;
+  failing_step: {
+    test_step_number: number;
+    step_details: string;
+    reason: string | null;
+  } | null;
+}
+
+export interface FullCheckReport {
+  run: {
+    id: string;
+    mode: string;
+    url: string;
+    created_at: string;
+    executed_at: string | null;
+    execution_status: string | null;
+    reviewed_at: string | null;
+  };
+  summary: ReportSummary;
+  failed_cases: ReportFailedCase[];
+}
+
+export function getReport(runId: string) {
+  return request<FullCheckReport>(`/analysis/${runId}/report`);
+}
+
+export function reportXlsxUrl(runId: string, embed: boolean) {
+  return `${API_URL}/analysis/${runId}/report.xlsx${embed ? "?embed=true" : ""}`;
 }

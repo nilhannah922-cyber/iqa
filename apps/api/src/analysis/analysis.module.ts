@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ExecutionService } from '../execution/execution.service';
+import { ReportService } from '../report/report.service';
 import { ResultsService } from '../results/results.service';
 import { EditProposalsService } from '../test-cases/edit-proposals.service';
 import { TestCasesService } from '../test-cases/test-cases.service';
@@ -16,6 +17,7 @@ import { STORAGE } from './storage.token';
     EditProposalsService,
     ExecutionService,
     ResultsService,
+    ReportService,
     { provide: STORAGE, useFactory: () => new LocalDiskStorage() },
   ],
 })

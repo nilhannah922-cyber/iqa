@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ExecutionState,
   discardExecution,
@@ -8,7 +8,16 @@ import {
   screenshotUrl,
   startExecution,
 } from "@/lib/api";
+import ReportView from "./report-view";
 import ResultsReview from "./results-review";
+
+/** ?view=report opens the report directly. */
+function reportRequested(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("view") === "report"
+  );
+}
 
 const POLL_MS = 2_000;
 
@@ -42,6 +51,17 @@ export default function ExecutionPanel({
   const [starting, setStarting] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [discarding, setDiscarding] = useState(false);
+  const [showReport, setShowReport] = useState(reportRequested);
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  function toggleReport() {
+    const next = !showReport;
+    setShowReport(next);
+    const url = new URL(window.location.href);
+    if (next) url.searchParams.set("view", "report");
+    else url.searchParams.delete("view");
+    window.history.replaceState(null, "", url);
+  }
 
   const refresh = useCallback(async () => {
     try {
@@ -102,6 +122,13 @@ export default function ExecutionPanel({
     }
   }
 
+  const hasRun = state?.status === "completed" || state?.status === "failed";
+  useEffect(() => {
+    if (showReport && hasRun) {
+      reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [showReport, hasRun]);
+
   const p = state?.progress;
   const done = state?.status === "completed" || state?.status === "failed";
   const totals = state?.cases.reduce(
@@ -134,7 +161,7 @@ export default function ExecutionPanel({
           {!approved
             ? "Approve the test cases to run them."
             : done
-              ? "Running again replaces these results."
+              ? "Running again deletes these results and any confirmations you made."
               : "Runs every case in a fresh headless browser."}
         </span>
       </div>
@@ -242,6 +269,17 @@ export default function ExecutionPanel({
               </button>
             )}
           </div>
+
+          <div className="report-toggle no-print">
+            <button type="button" onClick={toggleReport}>
+              {showReport ? "Hide report" : "View report"}
+            </button>
+          </div>
+          {showReport && (
+            <div ref={reportRef}>
+              <ReportView key={state.finished_at ?? "report"} runId={runId} />
+            </div>
+          )}
 
           {state.status === "completed" && (
             <ResultsReview key={state.finished_at ?? "results"} runId={runId} />

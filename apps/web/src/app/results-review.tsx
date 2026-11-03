@@ -28,6 +28,7 @@ const RESULT_LABELS: Record<ConfirmedResult, string> = {
 /** Same rule as the API: agreement, not yet decided, fails need a severity. */
 const autoConfirmable = (c: ResultCase) =>
   c.ai !== null &&
+  !c.test_case_problem &&
   c.confirmed_result === null &&
   c.ai.result === c.deterministic &&
   (c.ai.result === "pass" || c.ai.suggested_severity !== null);
@@ -106,6 +107,9 @@ function CaseCard({
       <div className="review-head">
         <strong>{c.test_case_number}</strong>
         <span className="review-scenario">{c.test_scenario}</span>
+        {c.test_case_problem && (
+          <span className="pill pill-problem">Test case problem</span>
+        )}
         {c.needs_attention && (
           <span className="pill pill-warn">Needs attention</span>
         )}
@@ -172,6 +176,11 @@ function CaseCard({
               <span className="muted">no proposal yet</span>
             )}
           </p>
+          {c.test_case_problem && (
+            <p className="review-problem">
+              Fix this test case (Discard results and edit), then run again.
+            </p>
+          )}
           {disagree && !c.confirmed_result && (
             <p className="review-disagree">
               Claude and the execution disagree. Decide this case yourself.

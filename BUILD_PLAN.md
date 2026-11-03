@@ -33,8 +33,8 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - [x] 9a. Review grid: AG Grid, manual edits, approval
 - [x] 9b. Instruction-based edit with diff + confirm
 - [x] 10. Execution engine: BullMQ worker runs approved cases in Playwright, one screenshot per case
-- [ ] 11. Pass/fail confirmation UI: AI proposes, user confirms or overrides
-- [ ] 12. Report view: executed, passed, failed by severity, not executed
+- [x] 11. Pass/fail confirmation UI: AI proposes, user confirms or overrides
+- [ ] 12. Report view: executed, passed, failed by severity, not executed; Excel export
 
 **Milestone: Mode 1 works end to end on at least 3 real websites.**
 
@@ -52,11 +52,11 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 
 ## Phase 5: Polish
 - [ ] 21. Error handling: broken URLs, load failures, timeouts
-- [ ] 22. Export reports (PDF and Excel)
+- [ ] 22. Export reports (PDF)
 - [ ] 23. Decide hosting and deploy
 
 ## Known limitations (v1)
 - Form submissions can only be verified by URL (e.g. that the browser navigated to the form's action), because the response page is not analyzed in v1.
 
 ## Current focus
-Phase 2, step 11: Pass/fail confirmation (AI proposes, user confirms or overrides).
+Phase 2, step 12: Full Check report (report view and Excel export).
