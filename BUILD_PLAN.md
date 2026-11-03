@@ -34,7 +34,7 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - [x] 9b. Instruction-based edit with diff + confirm
 - [x] 10. Execution engine: BullMQ worker runs approved cases in Playwright, one screenshot per case
 - [x] 11. Pass/fail confirmation UI: AI proposes, user confirms or overrides
-- [ ] 12. Report view: executed, passed, failed by severity, not executed; Excel export
+- [x] 12. Report view: executed, passed, failed by severity, not executed; Excel export
 
 **Milestone: Mode 1 works end to end on at least 3 real websites.**
 
@@ -59,4 +59,4 @@ Read `PROJECT_SPEC.md` first. It defines what we are building. This file defines
 - Form submissions can only be verified by URL (e.g. that the browser navigated to the form's action), because the response page is not analyzed in v1.
 
 ## Current focus
-Phase 2, step 12: Full Check report (report view and Excel export).
+Mode 1 milestone: run the full flow on 3 real websites; fixing issues found in the first real run.
