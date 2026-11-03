@@ -176,6 +176,11 @@ function CaseCard({
               <span className="muted">no proposal yet</span>
             )}
           </p>
+          {c.actual_output && (
+            <p>
+              <span className="muted">Actual output:</span> {c.actual_output}
+            </p>
+          )}
           {c.test_case_problem && (
             <p className="review-problem">
               Fix this test case (Discard results and edit), then run again.

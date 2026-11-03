@@ -95,7 +95,7 @@ export class ReportService {
     const buffer = await buildReportXlsx({
       runId,
       url: run.url,
-      date: run.execution_finished_at ?? run.timestamp,
+      createdAt: run.timestamp,
       finishedAt: run.execution_finished_at,
       reviewedAt: run.reviewed_at,
       summary: summarize(cases),
@@ -143,6 +143,7 @@ export class ReportService {
         execution_error: res?.execution_error ?? null,
         user_confirmed_result: res?.user_confirmed_result ?? null,
         ai_reason: res?.ai_reason ?? null,
+        ai_proposed_result: res?.ai_proposed_result ?? null,
         bug_id: res?.bug_id ?? null,
         bug_severity: res?.bug_severity ?? null,
         bug_status: res?.bug_status ?? null,

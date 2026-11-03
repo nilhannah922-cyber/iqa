@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "analyze": "ts-node src/analysis/analyze-page.ts",
     "checklist": "ts-node src/checklist/run-checklist.ts",
-    "testcases": "ts-node src/test-cases/run-testcases.ts"
+    "testcases": "ts-node src/test-cases/run-testcases.ts",
+    "renumber-screenshots": "ts-node src/maintenance/renumber-screenshots.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

@@ -8,6 +8,7 @@
  * at all in this run (added to the sheet after the execution) was not run:
  * it counts as not executed, and is also reported as "not_run".
  */
+import { caseActualOutputs } from '../results/actual-output';
 import { isTestCaseProblem } from '../results/result-rules';
 
 export type StepResult = 'pass' | 'fail' | 'not_executed';
@@ -28,6 +29,7 @@ export interface ReportStepInput {
   execution_error: string | null;
   user_confirmed_result: ConfirmedResult | null;
   ai_reason: string | null;
+  ai_proposed_result: 'pass' | 'fail' | 'not_executed' | null;
   bug_id: string | null;
   bug_severity: Severity | null;
   bug_status: string | null;
@@ -35,7 +37,10 @@ export interface ReportStepInput {
   screenshot: string | null;
 }
 
-/** The 12 columns of PROJECT_SPEC.md Section 5, in spec order. */
+const aiVerdict = (r: string | null) =>
+  r === 'pass' || r === 'fail' ? r : null;
+
+/** The sheet columns of PROJECT_SPEC.md Section 5, in spec order. */
 export const SHEET_COLUMNS = [
   { key: 'test_case_number', header: 'Test case number' },
   { key: 'test_page_area', header: 'Test page & area' },
@@ -43,6 +48,7 @@ export const SHEET_COLUMNS = [
   { key: 'test_step_number', header: 'Test step number' },
   { key: 'step_details', header: 'Step details' },
   { key: 'expected_output', header: 'Expected output' },
+  { key: 'actual_output', header: 'Actual output' },
   { key: 'test_data', header: 'Test data' },
   { key: 'result', header: 'Result' },
   { key: 'bug_id', header: 'Bug ID' },
@@ -58,6 +64,8 @@ export type SheetRow = {
   test_step_number: number;
   step_details: string;
   expected_output: string;
+  /** What actually happened in this run (see results/actual-output.ts). */
+  actual_output: string | null;
   test_data: string | null;
   /** Per-step result from this run's execution. */
   result: StepResult;
@@ -85,6 +93,8 @@ export interface CaseOutcome {
   bug_status: string | null;
   qa_comments: string | null;
   screenshot: string | null;
+  /** The failing step's actual output, or the reviewer's override reason. */
+  actual_output: string | null;
   failing_step: {
     test_step_number: number;
     step_details: string;
@@ -125,6 +135,12 @@ export function caseOutcomes(steps: ReportStepInput[]): CaseOutcome[] {
     const failing = rows.find((r) => r.result === 'fail') ?? null;
     // Bug fields live on the first failing step row, else the first row.
     const bugRow = failing ?? first;
+    const actual = caseActualOutputs(rows, {
+      confirmed: first.user_confirmed_result,
+      qa_comments: bugRow.qa_comments,
+      ai_reason: first.ai_reason,
+      ai_result: aiVerdict(first.ai_proposed_result),
+    });
     return {
       test_case_number: first.test_case_number,
       test_page_area: first.test_page_area,
@@ -137,6 +153,11 @@ export function caseOutcomes(steps: ReportStepInput[]): CaseOutcome[] {
       bug_status: bugRow.bug_status,
       qa_comments: bugRow.qa_comments,
       screenshot: rows.find((r) => r.screenshot)?.screenshot ?? null,
+      actual_output: failing
+        ? actual[rows.indexOf(failing)]
+        : first.user_confirmed_result === 'fail'
+          ? actual[0]
+          : null,
       failing_step: failing
         ? {
             test_step_number: failing.test_step_number,
@@ -179,8 +200,26 @@ export function summarize(cases: CaseOutcome[]): ReportSummary {
   };
 }
 
-/** The per-step sheet: the 12 columns as they stand for this run. */
+/** The per-step sheet: the sheet columns as they stand for this run. */
 export function sheetRows(steps: ReportStepInput[]): SheetRow[] {
+  const actualByStep = new Map<ReportStepInput, string | null>();
+  for (let i = 0; i < steps.length;) {
+    let j = i;
+    while (
+      j < steps.length &&
+      steps[j].test_case_number === steps[i].test_case_number
+    )
+      j++;
+    const rows = steps.slice(i, j);
+    const bugRow = rows.find((r) => r.result === 'fail') ?? rows[0];
+    caseActualOutputs(rows, {
+      confirmed: rows[0].user_confirmed_result,
+      qa_comments: bugRow.qa_comments,
+      ai_reason: rows[0].ai_reason,
+      ai_result: aiVerdict(rows[0].ai_proposed_result),
+    }).forEach((a, k) => actualByStep.set(rows[k], a));
+    i = j;
+  }
   return steps.map((s) => ({
     test_case_number: s.test_case_number,
     test_page_area: s.test_page_area,
@@ -188,6 +227,7 @@ export function sheetRows(steps: ReportStepInput[]): SheetRow[] {
     test_step_number: s.test_step_number,
     step_details: s.step_details,
     expected_output: s.expected_output,
+    actual_output: actualByStep.get(s) ?? null,
     test_data: s.test_data,
     result: s.result ?? 'not_executed',
     bug_id: s.bug_id,

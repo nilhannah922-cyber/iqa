@@ -153,39 +153,44 @@ export default function TestCaseSheet({
         editable: true,
         spanRows: sameCase,
         flex: 1,
-        minWidth: 110,
+        minWidth: 100,
       }),
       text("test_scenario", "Scenario", {
         editable: true,
         spanRows: sameCase,
         flex: 1.4,
-        minWidth: 140,
+        minWidth: 120,
       }),
       { field: "test_step_number", headerName: "Step", width: 58 },
       text("step_details", "Step details", {
         editable: true,
         flex: 1.7,
-        minWidth: 150,
+        minWidth: 130,
       }),
       text("expected_output", "Expected output", {
         editable: true,
         flex: 1.6,
-        minWidth: 140,
+        minWidth: 120,
+      }),
+      text("actual_output", "Actual output", {
+        flex: 1.6,
+        minWidth: 130,
+        cellClass: "cell-readonly",
       }),
       text("test_data", "Test data", {
         editable: true,
         flex: 1.3,
-        minWidth: 150,
+        minWidth: 130,
       }),
       { field: "result", headerName: "Result", width: 128 },
-      { field: "bug_id", headerName: "Bug ID", width: 72 },
-      { field: "screenshot", headerName: "Screenshot", width: 96 },
+      { field: "bug_id", headerName: "Bug ID", width: 64 },
+      { field: "screenshot", headerName: "Screenshot", width: 88 },
       text("qa_comments", "QA comments", {
         editable: true,
         flex: 0.9,
-        minWidth: 100,
+        minWidth: 90,
       }),
-      { field: "bug_severity", headerName: "Bug severity", width: 96 },
+      { field: "bug_severity", headerName: "Bug severity", width: 88 },
     ];
   }, []);
 

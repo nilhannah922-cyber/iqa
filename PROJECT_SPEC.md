@@ -67,35 +67,36 @@ All test cases — regardless of which mode created them — use this exact colu
 
 | # | Column | Type/Notes |
 |---|---|---|
-| 1 | test_case_number | string, **persistent/stable ID** — must not be regenerated per run; reused across Cross Check and Recheck so results are comparable over time |
+| 1 | test_case_number | string, **persistent/stable ID within its sheet** (`TC-0001` format) — must not be regenerated per run; reused across Cross Check and Recheck so results are comparable over time |
 | 2 | test_page_area | string, e.g. "Checkout > Payment Section" |
 | 3 | test_scenario | string, high-level description |
 | 4 | test_step_number | integer, sequence within scenario |
 | 5 | step_details | string, exact action to perform |
 | 6 | expected_output | string |
-| 7 | test_data | string, nullable |
-| 8 | result | enum: `pass` \| `fail` \| `not_executed` |
-| 9 | bug_id | string, nullable, external bug tracker reference |
-| 10 | screenshot | string (file path/URL), nullable, populated at execution |
-| 11 | qa_comments | string, nullable |
-| 12 | bug_severity | enum: `minor` \| `major` \| `critical`, nullable — populated only when result = fail |
+| 7 | actual_output | string, filled from the execution and read-only: `As expected` for pass, the observed value / failure reason for fail, `Not executed` (+ reason) otherwise |
+| 8 | test_data | string, nullable |
+| 9 | result | enum: `pass` \| `fail` \| `not_executed` |
+| 10 | bug_id | string, nullable, external bug tracker reference (auto ids `BUG-0001` come from a counter that only increases, so ids are never reused) |
+| 11 | screenshot | string (file path/URL), nullable, populated at execution |
+| 12 | qa_comments | string, nullable |
+| 13 | bug_severity | enum: `minor` \| `major` \| `critical`, nullable — populated only when result = fail |
 
 **Decided field**: `bug_status` (enum: `open` \| `fixed` \| `verified` \| `closed`, nullable) — a separate field from bug_severity. Lets Recheck report on bug lifecycle, not just pass/fail state (see Section 11).
 
-**Non-display columns** (stored with each step row, not part of the 12 columns above or of CSV/XLSX import/export; the display columns and their order are unchanged):
-- `test_run_id` — the analysis run that generated the case.
+**Non-display columns** (stored with each step row, not part of the 13 columns above or of CSV/XLSX import/export; the display columns and their order are unchanged):
+- `test_run_id` — the analysis run (sheet) the case belongs to.
 - `checklist_item_id`, `source` (`scan` \| `user_note` \| `cross_check`) — traceability to the checklist item and what triggered it (Section 9).
 - `step_action` — the machine-readable step the execution engine runs: `{action, selector?, value?}`. Allowed actions are defined in one shared constant (`STEP_ACTIONS`); selectors must come from the page analysis.
 
-**Numbering rule**: `test_case_number` is one global sequence `TC-0001`, `TC-0002`, … across all runs and pages (next = highest existing + 1). It never depends on run ids.
+**Numbering rule**: numbering is **per sheet** (analysis run): every sheet numbers its own cases `TC-0001`, `TC-0002`, …, so two sites each start at `TC-0001`. A number is stable within its sheet: editing, deleting a case or regenerating after an execution never renumbers existing cases (gaps are fine). A new case gets the highest number in that sheet + 1. When a whole sheet is regenerated with nothing executed, numbering restarts at `TC-0001`.
 
 ---
 
 ## 6. Data Model Notes
 
-- `test_cases` table: canonical current version of each test case (keyed by persistent `test_case_number` + `test_step_number`), linked to the generating run via `test_run_id`. Regenerating cases for a run replaces only that run's cases that have never been executed (no `test_run_results` rows).
+- `test_cases` table: canonical current version of each test case, keyed by (`test_run_id`, `test_case_number`, `test_step_number`): case numbers are unique per sheet only. Regenerating cases for a run replaces only that run's cases that have never been executed (no `test_run_results` rows).
 - `test_runs` table: one row per execution run, linked to mode (full_check / cross_check / recheck), URL, timestamp, status.
-- `test_run_results` table: one row per (test_run_id, test_case_number) — stores result, screenshot ref, comments, severity for that specific run. This is what enables Recheck's previous-vs-new comparison.
+- `test_run_results` table: one row per (test_run_id, test_case_number, test_step_number), referencing the same three-part key — stores result, screenshot ref, comments, severity for that specific run. This is what enables Recheck's previous-vs-new comparison.
 - `checklist_items` table: functionality checklist entries per analysis, with approved/rejected/added-by-user flags.
 - `edit_requests` / `notes_log` table: log of user free-text notes/instructions and the resulting AI-proposed diff, for audit trail.
 - Screenshots stored by reference (path/URL), not inline blobs.

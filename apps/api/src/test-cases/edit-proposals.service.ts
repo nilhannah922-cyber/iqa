@@ -346,7 +346,7 @@ export class EditProposalsService {
 
     await this.prisma.$transaction(
       async (tx) => {
-        await lockNumbering(tx);
+        await lockNumbering(tx, runId);
         await this.assertEditable(tx, runId);
         const sheet = await this.loadSheet(tx, runId);
         if (sheetVersion(sheet) !== proposal.sheet_version) {
@@ -437,7 +437,7 @@ export class EditProposalsService {
       throw new BadRequestException(warnings.join(' ') || 'Invalid change.');
     }
     await this.prisma.$transaction(async (tx) => {
-      await lockNumbering(tx);
+      await lockNumbering(tx, runId);
       await this.assertEditable(tx, runId);
       const sheet = await this.loadSheet(tx, runId);
       if (sheetVersion(sheet) !== sheetVersion(ctx.sheet)) {
@@ -481,7 +481,7 @@ export class EditProposalsService {
     }
 
     const added = cases.filter((c) => c.status === 'added');
-    const numbers = await nextTestCaseNumbers(tx, added.length);
+    const numbers = await nextTestCaseNumbers(tx, runId, added.length);
     const rows: Prisma.test_casesCreateManyInput[] = [];
     const rowsFor = (
       number: string,
