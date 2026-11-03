@@ -135,6 +135,8 @@ export interface TestCaseRow {
   test_step_number: number;
   step_details: string;
   expected_output: string;
+  /** From this run's execution; null before the sheet is executed. */
+  actual_output: string | null;
   test_data: string | null;
   result: "pass" | "fail" | "not_executed";
   bug_id: string | null;
@@ -380,6 +382,8 @@ export interface ResultCase {
   test_page_area: string;
   deterministic: "pass" | "fail" | "not_executed";
   failure: { step: number; reason: string | null } | null;
+  /** The failing step's actual output, a reviewer override, or "As expected". */
+  actual_output: string | null;
   ai: {
     result: "pass" | "fail";
     reason: string | null;
@@ -492,6 +496,7 @@ export interface ReportFailedCase {
   test_case_problem: boolean;
   screenshot: string | null;
   screenshot_url: string | null;
+  actual_output: string | null;
   failing_step: {
     test_step_number: number;
     step_details: string;

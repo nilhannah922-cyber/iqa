@@ -18,6 +18,7 @@ import {
   pageSelectors,
 } from '../claude/claude-json';
 import { assertSheetEditable } from '../execution/execution-guard';
+import { caseActualOutputs } from '../results/actual-output';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   StepActionName,
@@ -67,7 +68,10 @@ const rowSelect = {
 
 export type TestCaseRow = Prisma.test_casesGetPayload<{
   select: typeof rowSelect;
-}>;
+}> & {
+  /** From this run's execution (null before the sheet is executed). */
+  actual_output: string | null;
+};
 
 /** The test case sheet of a run plus its approval state. */
 export interface TestCaseSheet {
@@ -336,7 +340,8 @@ export class TestCasesService {
         ? [
             this.prisma.test_cases.update({
               where: {
-                test_case_number_test_step_number: {
+                test_run_id_test_case_number_test_step_number: {
+                  test_run_id: runId,
                   test_case_number: caseNumber,
                   test_step_number: stepNumber,
                 },
@@ -377,7 +382,8 @@ export class TestCasesService {
     await this.prisma.$transaction([
       this.prisma.test_cases.delete({
         where: {
-          test_case_number_test_step_number: {
+          test_run_id_test_case_number_test_step_number: {
+            test_run_id: runId,
             test_case_number: caseNumber,
             test_step_number: stepNumber,
           },
@@ -389,7 +395,8 @@ export class TestCasesService {
         .map((s) =>
           this.prisma.test_cases.update({
             where: {
-              test_case_number_test_step_number: {
+              test_run_id_test_case_number_test_step_number: {
+                test_run_id: runId,
                 test_case_number: caseNumber,
                 test_step_number: s.test_step_number,
               },
@@ -489,12 +496,60 @@ export class TestCasesService {
     }
   }
 
-  private rowsForRun(runId: string): Promise<TestCaseRow[]> {
-    return this.prisma.test_cases.findMany({
+  private async rowsForRun(runId: string): Promise<TestCaseRow[]> {
+    const rows = await this.prisma.test_cases.findMany({
       where: { test_run_id: runId },
-      select: rowSelect,
+      select: {
+        ...rowSelect,
+        run_results: {
+          select: {
+            result: true,
+            execution_error: true,
+            user_confirmed_result: true,
+            qa_comments: true,
+            ai_reason: true,
+            ai_proposed_result: true,
+          },
+        },
+      },
       orderBy: [{ test_case_number: 'asc' }, { test_step_number: 'asc' }],
     });
+    // Actual output is computed per case (a reviewer override fills step 1).
+    const out: TestCaseRow[] = [];
+    for (let i = 0; i < rows.length;) {
+      let j = i;
+      while (
+        j < rows.length &&
+        rows[j].test_case_number === rows[i].test_case_number
+      )
+        j++;
+      const caseRows = rows.slice(i, j);
+      const results = caseRows.map((r) => r.run_results[0] ?? null);
+      const reviewRow = results.find((r) => r?.result === 'fail') ?? results[0];
+      const actual = caseActualOutputs(
+        results.map((r) => ({
+          result: r?.result ?? null,
+          execution_error: r?.execution_error ?? null,
+        })),
+        {
+          confirmed: results[0]?.user_confirmed_result ?? null,
+          qa_comments: reviewRow?.qa_comments ?? null,
+          ai_reason: results[0]?.ai_reason ?? null,
+          ai_result:
+            results[0]?.ai_proposed_result === 'pass' ||
+            results[0]?.ai_proposed_result === 'fail'
+              ? results[0].ai_proposed_result
+              : null,
+        },
+      );
+      caseRows.forEach((row, k) => {
+        const { run_results, ...rest } = row;
+        void run_results;
+        out.push({ ...rest, actual_output: actual[k] });
+      });
+      i = j;
+    }
+    return out;
   }
 
   /**
@@ -507,7 +562,7 @@ export class TestCasesService {
     itemSource: Map<string, ArtifactSource>,
   ): Promise<{ replaced: number; kept: number }> {
     return this.prisma.$transaction(async (tx) => {
-      await lockNumbering(tx);
+      await lockNumbering(tx, runId);
 
       const old = await tx.test_cases.findMany({
         where: { test_run_id: runId },
@@ -528,11 +583,11 @@ export class TestCasesService {
       ];
       if (removable.length) {
         await tx.test_cases.deleteMany({
-          where: { test_case_number: { in: removable } },
+          where: { test_run_id: runId, test_case_number: { in: removable } },
         });
       }
 
-      const numbers = await nextTestCaseNumbers(tx, cases.length);
+      const numbers = await nextTestCaseNumbers(tx, runId, cases.length);
 
       const rows: Prisma.test_casesCreateManyInput[] = cases.flatMap((c, i) => {
         const number = numbers[i];

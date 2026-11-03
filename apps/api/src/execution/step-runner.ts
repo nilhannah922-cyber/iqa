@@ -59,6 +59,75 @@ export function cleanError(err: unknown): string {
     : text;
 }
 
+const ACTION_VERBS: Record<string, string> = {
+  click: 'click',
+  fill: 'fill',
+  check: 'check',
+  uncheck: 'uncheck',
+  select: 'select an option in',
+  press: 'press a key on',
+  wait: 'see',
+};
+
+/**
+ * Turns a Playwright error from an action step into a plain sentence,
+ * keeping the concrete reason Playwright gives (from its call log).
+ */
+export function plainActionError(
+  err: unknown,
+  action: string,
+  value: string,
+  timeoutMs: number,
+): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  const lines = raw
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const first = lines[0] ?? raw;
+  const verb = ACTION_VERBS[action] ?? action;
+
+  const strict = /strict mode violation.*resolved to (\d+) elements/i.exec(raw);
+  if (strict) {
+    return `The selector matches ${strict[1]} elements, expected exactly one.`;
+  }
+  if (
+    /not an <input>, <textarea>|not an? (input|textarea)|not editable/i.test(
+      raw,
+    )
+  ) {
+    return 'The element is not an editable text field, so it cannot be filled.';
+  }
+  if (/not a <select> element/i.test(raw)) {
+    return 'The element is not a dropdown, so no option can be selected.';
+  }
+  if (/did not find some options|options? not found/i.test(raw)) {
+    return `The dropdown has no option with the value or label "${value}".`;
+  }
+  if (/did not change its state/i.test(raw)) {
+    return `Clicking did not ${action} the box; its state did not change.`;
+  }
+  if (/Timeout \d+ms exceeded/i.test(first)) {
+    // Playwright's call log ends with what it was still waiting for.
+    const waits = lines.filter((l) =>
+      /element is not|is not visible|not enabled|not stable|intercepts pointer events|is disabled|waiting for/i.test(
+        l,
+      ),
+    );
+    const last = waits[waits.length - 1]?.replace(/^-\s*/, '');
+    const why =
+      last && !/^waiting for (locator|getBy)/i.test(last)
+        ? ` Last state: ${last.replace(/\s+/g, ' ')}.`
+        : '';
+    return `Could not ${verb} the element within ${Math.round(timeoutMs / 1000)}s.${why}`;
+  }
+  return first
+    .replace(/^(locator|page|keyboard)\.\w+:\s*/i, '')
+    .replace(/^Error:\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 500);
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const normalize = (s: string) => s.replace(/\s+/g, ' ').trim();
 const quote = (s: string) => JSON.stringify(s);
@@ -192,7 +261,10 @@ export async function runStep(
           );
         }
       }
-      throw err;
+      if (err instanceof StepFailure) throw err;
+      throw new StepFailure(
+        plainActionError(err, action, value, actionTimeout),
+      );
     }
   };
 
@@ -251,14 +323,14 @@ export async function runStep(
       await poll(
         expectTimeout,
         limits,
-        `element ${want ? '' : 'not '}visible`,
+        `the element to be ${want ? 'visible' : 'hidden or absent'}`,
         async () => {
           const visible = await single(locator(), true).then((l) =>
             l ? l.isVisible() : false,
           );
           return {
             ok: visible === want,
-            observed: visible ? 'visible' : 'not visible',
+            observed: visible ? 'it was visible' : 'it was not visible',
           };
         },
       );
@@ -274,31 +346,41 @@ export async function runStep(
           const text = normalize(await l!.innerText({ timeout: 1_000 }));
           return {
             ok: text.includes(normalize(value)),
-            observed: quote(text.slice(0, 120)),
+            observed: `the actual text was ${quote(text.slice(0, 200))}`,
           };
         },
       );
       return;
     case 'expect_value':
       // "" means the field must be empty.
-      await poll(expectTimeout, limits, `value ${quote(value)}`, async () => {
-        const l = await single(locator());
-        const current = await l!.inputValue({ timeout: 1_000 });
-        return { ok: current === value, observed: quote(current) };
-      });
+      await poll(
+        expectTimeout,
+        limits,
+        value ? `value ${quote(value)}` : 'an empty field',
+        async () => {
+          const l = await single(locator());
+          const current = await l!.inputValue({ timeout: 1_000 });
+          return {
+            ok: current === value,
+            observed: current
+              ? `the actual value was ${quote(current)}`
+              : 'the field was empty',
+          };
+        },
+      );
       return;
     case 'expect_checked': {
       const want = value === 'true';
       await poll(
         expectTimeout,
         limits,
-        want ? 'checked' : 'not checked',
+        want ? 'the box to be checked' : 'the box to be unchecked',
         async () => {
           const l = await single(locator());
           const checked = await l!.isChecked({ timeout: 1_000 });
           return {
             ok: checked === want,
-            observed: checked ? 'checked' : 'not checked',
+            observed: checked ? 'it was checked' : 'it was not checked',
           };
         },
       );
@@ -309,7 +391,7 @@ export async function runStep(
       await poll(
         expectTimeout,
         limits,
-        want ? 'focused' : 'not focused',
+        want ? 'the element to have focus' : 'the element not to have focus',
         async () => {
           const l = await single(locator());
           // Fixed check written here, never taken from the sheet.
@@ -320,7 +402,7 @@ export async function runStep(
           );
           return {
             ok: focused === want,
-            observed: focused ? 'focused' : 'not focused',
+            observed: focused ? 'it had focus' : 'it did not have focus',
           };
         },
       );
@@ -333,7 +415,10 @@ export async function runStep(
         `URL containing ${quote(value)}`,
         () => {
           const url = page.url();
-          return Promise.resolve({ ok: url.includes(value), observed: url });
+          return Promise.resolve({
+            ok: url.includes(value),
+            observed: `the actual URL was ${url}`,
+          });
         },
       );
       return;
@@ -344,7 +429,12 @@ export async function runStep(
         `title containing ${quote(value)}`,
         async () => {
           const title = await page.title();
-          return { ok: title.includes(value), observed: quote(title) };
+          return {
+            ok: title.includes(value),
+            observed: title
+              ? `the actual title was ${quote(title)}`
+              : 'the page has no title',
+          };
         },
       );
       return;
@@ -363,7 +453,7 @@ async function single(
   const count = await l.count();
   if (count === 0) {
     if (allowMissing) return null;
-    throw new Retry('element not found');
+    throw new Retry('no element matched the selector');
   }
   if (count > 1) {
     throw new StepFailure(
@@ -384,7 +474,7 @@ async function poll(
   probe: () => Promise<{ ok: boolean; observed: string }>,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
-  let observed = 'nothing';
+  let observed = 'nothing could be checked';
   for (;;) {
     try {
       const r = await probe();
@@ -397,7 +487,7 @@ async function poll(
     }
     if (Date.now() >= deadline) {
       throw new StepFailure(
-        `Expected ${expected} within ${timeoutMs / 1000}s, but got ${observed}.`,
+        `Expected ${expected}, but ${observed} (checked for ${timeoutMs / 1000}s).`,
       );
     }
     await sleep(limits.pollIntervalMs);

@@ -24,6 +24,7 @@ import {
   screenshotBlock,
 } from '../claude/claude-json';
 import { isExecutionActive } from '../execution/execution-guard';
+import { AS_EXPECTED, caseActualOutputs } from './actual-output';
 import { PrismaService } from '../prisma/prisma.service';
 import { preserveRawReply } from '../test-cases/test-case-store';
 import {
@@ -40,8 +41,6 @@ import {
 
 export const REVIEW_BATCH_SIZE = 5;
 const MAX_TOKENS = 8_000;
-// Serializes bug id numbering (transaction-scoped advisory lock).
-const BUG_NUMBER_LOCK_KEY = 4_203_772;
 
 const SYSTEM_PROMPT = `You review the results of automated functional tests of one web page. A Playwright runner executed each test case deterministically. For each case you get its scenario, every step with the expected output, the step's deterministic result (pass, fail or not_executed) and failure reason, and one screenshot taken at the first failure or at the end of the case.
 
@@ -396,14 +395,17 @@ export class ResultsService {
     });
   }
 
-  /** Next id of the global BUG-0001 sequence. */
+  /**
+   * Next id of the global BUG-0001 sequence. The counter only ever
+   * increases (atomic upsert), so ids are never reused, even after results
+   * are discarded.
+   */
   private async nextBugId(tx: Prisma.TransactionClient): Promise<string> {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BUG_NUMBER_LOCK_KEY})`;
-    const [{ max }] = await tx.$queryRaw<{ max: number }[]>`
-      SELECT COALESCE(MAX(CAST(SUBSTRING(bug_id FROM 5) AS INTEGER)), 0)::int AS max
-      FROM test_run_results
-      WHERE bug_id ~ '^BUG-[0-9]+$'`;
-    return `BUG-${String(max + 1).padStart(4, '0')}`;
+    const [{ value }] = await tx.$queryRaw<{ value: number }[]>`
+      INSERT INTO id_counters (name, value) VALUES ('bug', 1)
+      ON CONFLICT (name) DO UPDATE SET value = id_counters.value + 1
+      RETURNING value`;
+    return `BUG-${String(value).padStart(4, '0')}`;
   }
 
   /** reviewed_at is set only while every executed case is confirmed. */
@@ -445,6 +447,21 @@ export class ResultsService {
       const failed = rows.find((r) => r.result === 'fail');
       const ai = first.ai_proposed_result as 'pass' | 'fail' | null;
       const confirmed = first.user_confirmed_result;
+      const actual = caseActualOutputs(rows, {
+        confirmed,
+        qa_comments: bugRow.qa_comments,
+        ai_reason: first.ai_reason,
+        ai_result: ai,
+      });
+      // One line for the card: the failing step's actual output, a
+      // reviewer override, or "As expected".
+      const keyIndex = failed
+        ? rows.indexOf(failed)
+        : confirmed === 'fail'
+          ? 0
+          : rows.findIndex((r) => r.result !== 'pass');
+      const actualOutput =
+        keyIndex >= 0 ? actual[keyIndex] : rows.length ? AS_EXPECTED : null;
       return {
         test_case_number: g.test_case_number,
         test_scenario: g.test_scenario,
@@ -453,6 +470,7 @@ export class ResultsService {
         failure: failed
           ? { step: failed.test_step_number, reason: failed.execution_error }
           : null,
+        actual_output: actualOutput,
         ai: ai
           ? {
               result: ai,
@@ -475,6 +493,7 @@ export class ResultsService {
           expected_output: s.expected_output,
           result: s.row.result,
           execution_error: s.row.execution_error,
+          actual_output: actual[g.steps.indexOf(s)],
         })),
       };
     });

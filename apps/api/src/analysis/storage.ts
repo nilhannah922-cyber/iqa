@@ -23,7 +23,9 @@ export const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..');
 
 export class LocalDiskStorage implements StorageProvider {
   constructor(
-    private readonly rootDir: string = resolve(REPO_ROOT, 'storage'),
+    private readonly rootDir: string = resolve(
+      process.env.STORAGE_ROOT?.trim() || resolve(REPO_ROOT, 'storage'),
+    ),
   ) {}
 
   async save(key: string, data: Buffer | string): Promise<string> {

@@ -1,42 +1,51 @@
 /**
- * Shared helpers for writing test cases: the global numbering sequence and
- * the safety net that preserves a paid Claude reply when processing it fails.
+ * Shared helpers for writing test cases: per-sheet numbering and the safety
+ * net that preserves a paid Claude reply when processing it fails.
  */
 import { Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { StorageProvider } from '../analysis/storage';
 
 /**
- * Persistent numbering: one global sequence TC-0001, TC-0002, ... across all
- * runs and pages. The next number is the highest existing TC-n plus 1, so
- * numbers never depend on run ids and never collide between pages.
+ * Numbering per sheet (analysis run): every run numbers its own cases
+ * TC-0001, TC-0002, ... A new case gets the highest number in that run plus
+ * one; existing cases are never renumbered (gaps are fine). When a run's
+ * whole sheet is regenerated with nothing executed, numbering restarts at 1.
  */
 const NUMBER_PREFIX = 'TC-';
 const NUMBER_WIDTH = 4;
-// Serializes numbering across concurrent writers (transaction-scoped lock).
+const NUMBER_PATTERN = '^TC-[0-9]+$';
+// Serializes numbering of one run across concurrent writers
+// (transaction-scoped advisory lock keyed by the run).
 const NUMBERING_LOCK_KEY = 4_203_771;
 
 export function formatTestCaseNumber(n: number): string {
   return `${NUMBER_PREFIX}${String(n).padStart(NUMBER_WIDTH, '0')}`;
 }
 
-/** Takes the numbering lock for the rest of the transaction. */
-export async function lockNumbering(tx: Prisma.TransactionClient) {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${NUMBERING_LOCK_KEY})`;
+/** Takes the run's numbering lock for the rest of the transaction. */
+export async function lockNumbering(
+  tx: Prisma.TransactionClient,
+  runId: string,
+) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${NUMBERING_LOCK_KEY}::int, hashtext(${runId}))`;
 }
 
 /**
- * Returns `count` new consecutive test case numbers. Call lockNumbering first
- * in the same transaction, after deleting rows whose numbers may be reused.
+ * Returns `count` new consecutive test case numbers for one run. Call
+ * lockNumbering(tx, runId) first in the same transaction, after deleting
+ * rows whose numbers may be reused.
  */
 export async function nextTestCaseNumbers(
   tx: Prisma.TransactionClient,
+  runId: string,
   count: number,
 ): Promise<string[]> {
   const [{ max }] = await tx.$queryRaw<{ max: number }[]>`
     SELECT COALESCE(MAX(CAST(SUBSTRING(test_case_number FROM ${NUMBER_PREFIX.length + 1}::int) AS INTEGER)), 0)::int AS max
     FROM test_cases
-    WHERE test_case_number ~ ${`^${NUMBER_PREFIX}[0-9]+$`}`;
+    WHERE test_run_id = ${runId}
+      AND test_case_number ~ ${NUMBER_PATTERN}`;
   return Array.from({ length: count }, (_, i) =>
     formatTestCaseNumber(max + i + 1),
   );

@@ -1186,3 +1186,9 @@ a.button-link {
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* Read-only grid column (computed from the execution). */
+.grid-wrap .cell-readonly {
+  color: var(--muted);
+  font-style: italic;
+}

@@ -52,18 +52,18 @@ model test_cases {
   qa_comments       String?
   bug_severity      bug_severity?
   bug_status        bug_status?
-  // Not display columns (PROJECT_SPEC.md Section 5): generation link,
-  // traceability and the machine-readable step for the execution engine.
-  test_run_id       String?
+  // Not display columns (PROJECT_SPEC.md Section 5): the sheet (run) the case
+  // belongs to, traceability and the machine-readable step for execution.
+  // test_case_number is unique per sheet only (TC-0001... in every run).
+  test_run_id       String
   checklist_item_id String?
   source            artifact_source?
   step_action       Json?
   run_results       test_run_results[]
-  test_run          test_runs?         @relation(fields: [test_run_id], references: [id], onDelete: SetNull)
+  test_run          test_runs          @relation(fields: [test_run_id], references: [id])
   checklist_item    checklist_items?   @relation(fields: [checklist_item_id], references: [id], onDelete: SetNull)
 
-  @@id([test_case_number, test_step_number])
-  @@index([test_run_id])
+  @@id([test_run_id, test_case_number, test_step_number])
 }
 
 model test_runs {
@@ -117,7 +117,7 @@ model test_run_results {
   ai_suggested_severity bug_severity?
   ai_bug_title          String?
   test_run              test_runs     @relation(fields: [test_run_id], references: [id])
-  test_case             test_cases    @relation(fields: [test_case_number, test_step_number], references: [test_case_number, test_step_number])
+  test_case             test_cases    @relation(fields: [test_run_id, test_case_number, test_step_number], references: [test_run_id, test_case_number, test_step_number])
 
   @@unique([test_run_id, test_case_number, test_step_number])
 }
@@ -157,4 +157,11 @@ model edit_requests {
   test_run      test_runs       @relation(fields: [test_run_id], references: [id])
 
   @@index([test_run_id, created_at])
+}
+
+/// Monotonic counters (e.g. "bug" for BUG-0001 ids). Values only increase,
+/// so an id is never reused even after results are deleted.
+model id_counters {
+  name  String @id
+  value Int
 }

@@ -59,7 +59,10 @@ export default function ReportView({ runId }: { runId: string }) {
   if (!report) return <p className="muted">Loading the report…</p>;
 
   const s = report.summary;
-  const date = new Date(report.run.executed_at ?? report.run.created_at);
+  const created = new Date(report.run.created_at);
+  const executed = report.run.executed_at
+    ? new Date(report.run.executed_at)
+    : null;
 
   return (
     <section className="report-view" aria-labelledby="report-heading">
@@ -67,8 +70,10 @@ export default function ReportView({ runId }: { runId: string }) {
         <div>
           <h2 id="report-heading">Full Check report</h2>
           <p className="muted small">
-            <a href={report.run.url}>{report.run.url}</a> · executed{" "}
-            {date.toLocaleString()} · run {report.run.id}
+            <a href={report.run.url}>{report.run.url}</a> · run created{" "}
+            {created.toLocaleString()} · executed{" "}
+            {executed ? executed.toLocaleString() : "not yet"} · run{" "}
+            {report.run.id}
           </p>
         </div>
         <div className="report-actions no-print">
@@ -143,6 +148,7 @@ export default function ReportView({ runId }: { runId: string }) {
                 <th scope="col">Severity</th>
                 <th scope="col">Status</th>
                 <th scope="col">Failing step</th>
+                <th scope="col">Actual output</th>
                 <th scope="col">QA comments</th>
                 <th scope="col">Screenshot</th>
               </tr>
@@ -173,9 +179,6 @@ export default function ReportView({ runId }: { runId: string }) {
                       <>
                         Step {c.failing_step.test_step_number}:{" "}
                         {c.failing_step.step_details}
-                        <span className="exec-reason">
-                          {c.failing_step.reason}
-                        </span>
                       </>
                     ) : (
                       <span className="muted">
@@ -183,6 +186,7 @@ export default function ReportView({ runId }: { runId: string }) {
                       </span>
                     )}
                   </td>
+                  <td>{c.actual_output ?? ""}</td>
                   <td>{c.qa_comments ?? ""}</td>
                   <td>
                     {c.screenshot && (
