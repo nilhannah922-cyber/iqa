@@ -287,6 +287,63 @@ export class ExecutionService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  /**
+   * Discards the run's results and screenshots and returns the sheet to an
+   * editable, unapproved state (also clears any confirmations).
+   */
+  async discard(runId: string) {
+    const run = await this.prisma.test_runs.findUnique({
+      where: { id: runId },
+    });
+    if (!run) throw new NotFoundException(`Analysis run ${runId} not found.`);
+    if (isExecutionActive(run.execution_status)) {
+      throw new ConflictException(
+        "The tests are running; results can't be discarded until they finish.",
+      );
+    }
+    const keys = await this.prisma.test_run_results.findMany({
+      where: { test_run_id: runId, screenshot: { not: null } },
+      select: { screenshot: true },
+      distinct: ['screenshot'],
+    });
+    const [deleted] = await this.prisma.$transaction([
+      this.prisma.test_run_results.deleteMany({
+        where: { test_run_id: runId },
+      }),
+      this.prisma.test_runs.update({
+        where: { id: runId },
+        data: {
+          execution_status: null,
+          execution_job_id: null,
+          execution_queued_at: null,
+          execution_started_at: null,
+          execution_finished_at: null,
+          execution_current_case: null,
+          execution_error: null,
+          test_cases_approved_at: null,
+          reviewed_at: null,
+        },
+      }),
+    ]);
+    let removed = 0;
+    for (const { screenshot } of keys) {
+      // Only keys this engine wrote for this run; never anything else.
+      if (!screenshot?.startsWith(`execution/${runId}/`)) continue;
+      await this.storage
+        .remove(screenshot)
+        .then(() => removed++)
+        .catch((err) =>
+          this.logger.warn(
+            `Could not delete ${screenshot}: ${cleanError(err)}`,
+          ),
+        );
+    }
+    this.logger.log(
+      `Run ${runId}: discarded ${deleted.count} results and ${removed} screenshots`,
+    );
+    return this.status(runId);
+  }
+
   /** Streams a case screenshot through the storage provider. */
   async screenshot(runId: string, caseNumber: string) {
     const key = screenshotKey(runId, caseNumber);

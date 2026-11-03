@@ -87,6 +87,8 @@ model test_runs {
   execution_finished_at  DateTime?
   execution_current_case String?
   execution_error        String?
+  // Step 11: set when every executed case has a confirmed result.
+  reviewed_at            DateTime?
   results                test_run_results[]
   checklist_items        checklist_items[]
   edit_requests          edit_requests[]
@@ -110,6 +112,10 @@ model test_run_results {
   execution_error       String?
   /// How long the step took, in milliseconds (null when not executed).
   duration_ms           Int?
+  /// Step 11: Claude's verdict for the whole case (same on every step row).
+  ai_reason             String?
+  ai_suggested_severity bug_severity?
+  ai_bug_title          String?
   test_run              test_runs     @relation(fields: [test_run_id], references: [id])
   test_case             test_cases    @relation(fields: [test_case_number, test_step_number], references: [test_case_number, test_step_number])
 

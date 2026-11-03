@@ -367,3 +367,99 @@ export function getExecution(runId: string) {
 export function screenshotUrl(runId: string, caseNumber: string) {
   return `${API_URL}/analysis/${runId}/screenshots/${encodeURIComponent(caseNumber)}`;
 }
+
+// ---- Result review (step 11) ----
+
+export type ConfirmedResult = "pass" | "fail" | "not_executed";
+export type Severity = "minor" | "major" | "critical";
+export type BugStatus = "open" | "fixed" | "verified" | "closed";
+
+export interface ResultCase {
+  test_case_number: string;
+  test_scenario: string;
+  test_page_area: string;
+  deterministic: "pass" | "fail" | "not_executed";
+  failure: { step: number; reason: string | null } | null;
+  ai: {
+    result: "pass" | "fail";
+    reason: string | null;
+    suggested_severity: Severity | null;
+    bug_title: string | null;
+  } | null;
+  confirmed_result: ConfirmedResult | null;
+  bug_severity: Severity | null;
+  bug_id: string | null;
+  bug_status: BugStatus | null;
+  qa_comments: string | null;
+  screenshot: string | null;
+  needs_attention: boolean;
+}
+
+export interface ResultsSheet {
+  run_id: string;
+  execution_status: string;
+  reviewed_at: string | null;
+  summary: {
+    cases: number;
+    confirmed: number;
+    proposed: number;
+    needs_attention: number;
+  };
+  cases: ResultCase[];
+}
+
+export interface ReviewResponse extends ResultsSheet {
+  review: {
+    model: string;
+    requests: number;
+    cases_reviewed: number;
+    usage: { input_tokens: number; output_tokens: number };
+    warnings: string[];
+  };
+}
+
+export interface Confirmation {
+  user_confirmed_result?: ConfirmedResult | null;
+  bug_severity?: Severity | null;
+  bug_id?: string | null;
+  bug_status?: BugStatus | null;
+  qa_comments?: string | null;
+}
+
+/** A review sends screenshots to Claude in batches; allow up to 4 minutes. */
+const REVIEW_TIMEOUT_MS = 240_000;
+
+export function getResults(runId: string) {
+  return request<ResultsSheet>(`/analysis/${runId}/results`);
+}
+
+export function reviewResults(runId: string) {
+  return request<ReviewResponse>(`/analysis/${runId}/results/review`, {
+    method: "POST",
+    timeoutMs: REVIEW_TIMEOUT_MS,
+  });
+}
+
+export function confirmResult(
+  runId: string,
+  caseNumber: string,
+  confirmation: Confirmation,
+) {
+  return request<ResultCase>(
+    `/analysis/${runId}/results/${encodeURIComponent(caseNumber)}`,
+    { method: "PATCH", body: JSON.stringify(confirmation) },
+  );
+}
+
+export function confirmAllAsProposed(runId: string) {
+  return request<ResultsSheet & { confirmed_now: number }>(
+    `/analysis/${runId}/results/confirm-all-as-proposed`,
+    { method: "POST" },
+  );
+}
+
+export function discardExecution(runId: string) {
+  return request<ExecutionState>(`/analysis/${runId}/execution/discard`, {
+    method: "POST",
+  });
+}

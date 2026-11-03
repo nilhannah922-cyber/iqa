@@ -22,6 +22,7 @@ import {
   approveTestCases,
   deleteTestCase,
   deleteTestStep,
+  getTestCases,
   updateTestStep,
 } from "@/lib/api";
 
@@ -468,7 +469,11 @@ export default function TestCaseSheet({
         )}
       </aside>
 
-      <ExecutionPanel runId={runId} approved={!!approvedAt} />
+      <ExecutionPanel
+        runId={runId}
+        approved={!!approvedAt}
+        onDiscarded={async () => onSheetChange(await getTestCases(runId))}
+      />
     </section>
   );
 }
