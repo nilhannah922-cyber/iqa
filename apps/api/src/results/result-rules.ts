@@ -51,14 +51,28 @@ export function needsAttention(c: {
   return (disagree && c.confirmed === null) || unconfirmedFail;
 }
 
-/** Cases "confirm all as proposed" may confirm: agreement and no decision yet. */
+/** Prefix Claude uses when a failure is caused by the test, not the page. */
+export const TEST_CASE_PROBLEM_PREFIX = 'Test case problem:';
+
+export function isTestCaseProblem(
+  aiReason: string | null | undefined,
+): boolean {
+  return (aiReason ?? '').trimStart().startsWith(TEST_CASE_PROBLEM_PREFIX);
+}
+
+/**
+ * Cases "confirm all as proposed" may confirm: agreement, no decision yet,
+ * and not a test case problem (those need fixing, not a bug).
+ */
 export function canAutoConfirm(c: {
   deterministic: 'pass' | 'fail' | 'not_executed';
   ai: Verdict | null;
   aiSeverity: Severity | null;
+  aiReason?: string | null;
   confirmed: ConfirmedResult | null;
 }): boolean {
   if (c.confirmed !== null || c.ai === null) return false;
+  if (isTestCaseProblem(c.aiReason)) return false;
   if (c.deterministic !== c.ai) return false;
   // A fail can only be confirmed with a severity.
   return c.ai === 'pass' || c.aiSeverity !== null;
@@ -130,7 +144,7 @@ export function validateVerdicts(
     if (result === 'pass') {
       severity = null;
       title = null;
-    } else if (!severity) {
+    } else if (!severity && !isTestCaseProblem(reason)) {
       warnings.push(
         `${number}: fail proposed without a severity; choose one when confirming.`,
       );

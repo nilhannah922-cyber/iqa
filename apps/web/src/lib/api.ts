@@ -393,6 +393,8 @@ export interface ResultCase {
   qa_comments: string | null;
   screenshot: string | null;
   needs_attention: boolean;
+  /** Claude's reason starts with "Test case problem:". */
+  test_case_problem: boolean;
 }
 
 export interface ResultsSheet {

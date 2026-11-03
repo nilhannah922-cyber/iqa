@@ -31,6 +31,7 @@ import {
   Confirmation,
   SEVERITIES,
   canAutoConfirm,
+  isTestCaseProblem,
   deterministicOutcome,
   needsAttention,
   resolveConfirmation,
@@ -50,7 +51,12 @@ Rules:
 - A case where every step passed is a pass, unless the screenshot clearly contradicts an expected output. Only then propose fail and say exactly what the screenshot shows.
 - Be conservative. Base the reason only on the step outcomes and what is visible in the screenshot; never invent evidence. If the screenshot is missing or unclear, say so and rely on the step outcomes.
 - reason: one or two short sentences.
-- For a fail: suggested_severity (critical = the page's main purpose is broken, major = an important function is broken, minor = cosmetic or edge case) and bug_title (one line, describes the defect, or the test problem). For a pass use "" for both.
+- For a fail: suggested_severity and bug_title (one line describing the defect, or the test problem). For a pass use "" for both.
+- Severity definitions:
+  - critical: a core function is broken, data is lost, or the main flow is blocked. A missing or non-working main action (for example the submit button) is critical.
+  - major: an important function is broken, but a workaround exists.
+  - minor: cosmetic or low impact.
+- For a test case problem, suggest no severity (use "") because the page is not at fault.
 - Return exactly one verdict per case you were given.`;
 
 function verdictSchema(caseNumbers: string[]) {
@@ -329,6 +335,7 @@ export class ResultsService {
           deterministic,
           ai,
           aiSeverity: first.ai_suggested_severity,
+          aiReason: first.ai_reason,
           confirmed: first.user_confirmed_result,
         })
       ) {
@@ -461,6 +468,7 @@ export class ResultsService {
         qa_comments: bugRow.qa_comments,
         screenshot: rows.find((r) => r.screenshot)?.screenshot ?? null,
         needs_attention: needsAttention({ deterministic, ai, confirmed }),
+        test_case_problem: isTestCaseProblem(first.ai_reason),
         steps: g.steps.map((s) => ({
           test_step_number: s.test_step_number,
           step_details: s.step_details,

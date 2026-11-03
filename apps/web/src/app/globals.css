@@ -941,3 +941,13 @@ button.choice.selected {
     grid-template-columns: 1fr;
   }
 }
+
+.pill-problem {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.review-problem {
+  color: var(--accent);
+  font-weight: 600;
+}

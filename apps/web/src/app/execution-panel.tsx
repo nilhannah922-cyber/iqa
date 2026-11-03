@@ -134,7 +134,7 @@ export default function ExecutionPanel({
           {!approved
             ? "Approve the test cases to run them."
             : done
-              ? "Running again replaces these results."
+              ? "Running again deletes these results and any confirmations you made."
               : "Runs every case in a fresh headless browser."}
         </span>
       </div>
